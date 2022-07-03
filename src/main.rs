@@ -16,16 +16,23 @@ use winit::{
 use winit::platform::windows::{WindowBuilderExtWindows, WindowExtWindows};
 use winit::window::Theme;
 
+use ruitachi::*;
+use ruitachi::events::MouseButtonEvent;
+use ruitachi::platform::common::Platform;
+use ruitachi::widgets::{Clickable, ClickState, Hoverable, HoverState, MouseInteract};
+
 fn main() {
     let mut hovering = false;
     let mut pos = cgmath::Vector2::<f32>::new(0.0, 0.0);
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
+    let mut window = WindowBuilder::new()
         .with_title("Hello World")
         .with_decorations(true)
         .with_transparent(true)
         .build(&event_loop)
         .unwrap();
+
+    platform::Platform::IntializeWindow(&mut window);
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -36,7 +43,7 @@ fn main() {
                 window_id,
             } if window_id == window.id() => *control_flow = ControlFlow::Exit,
             Event::RedrawRequested(_) => {
-                draw(&window, hovering, pos);
+                platform::Platform::DrawWindow(&mut window, draw)
             },
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved {
@@ -69,90 +76,48 @@ fn main() {
     });
 }
 
-fn draw(window : &winit::window::Window, hovering : bool, pos : cgmath::Vector2<f32>) {
-    unsafe {
-        match window.raw_window_handle() {
-            RawWindowHandle::Win32(handle) => {
-                let hwnd = windows::Win32::Foundation::HWND(handle.hwnd as isize);
-                windows::Win32::Graphics::Gdi::InvalidateRect(hwnd, std::ptr::null(), false);
-                let mut rect = windows::Win32::Foundation::RECT {
-                    bottom: 0,
-                    left: 0,
-                    top: 0,
-                    right: 0
-                };
-                if unsafe { windows::Win32::UI::WindowsAndMessaging::GetClientRect(hwnd, &mut rect) } == windows::Win32::Foundation::BOOL(0) {
-                    return
-                }
-                let bmpw = max(rect.right - rect.left, 1);
-                let bmph = max(rect.bottom - rect.top, 1);
+struct Test {
+    hover_state : HoverState,
+    click_state : ClickState,
+}
 
-                let mut paintStruct = PAINTSTRUCT::default();
-                let hdc = unsafe { BeginPaint(hwnd, &mut paintStruct) };
-                let bmpSize = std::mem::size_of::<BITMAPINFOHEADER>() + ((bmpw * bmph) as usize) * std::mem::size_of::<RGBQUAD>();
-                let mut bmpInfoVec = vec![0 as u8; bmpSize];
-                let bmpInfo = bmpInfoVec.as_mut_ptr() as *mut BITMAPINFO;
-                unsafe {
-                    (*bmpInfo).bmiHeader.biWidth = bmpw;
-                    (*bmpInfo).bmiHeader.biHeight = -bmph;
-                    (*bmpInfo).bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
-                    (*bmpInfo).bmiHeader.biPlanes = 1;
-                    (*bmpInfo).bmiHeader.biBitCount = 32;
-                    (*bmpInfo).bmiHeader.biCompression = BI_RGB as u32;
-                }
-
-                let mut pixels = unsafe {&(*bmpInfo).bmiColors };
-                let mut pixels2 = (*bmpInfo).bmiColors.as_mut_ptr() as *mut u8;
-                let pixels_p = std::slice::from_raw_parts_mut(pixels2, (bmpw * bmph) as usize * std::mem::size_of::<RGBQUAD>());
-
-                let info = skia_safe::ImageInfo::new(
-                    (bmpw, bmph),
-                    skia_safe::ColorType::BGRA8888,
-                    skia_safe::AlphaType::Unpremul,
-                    None,
-                );
-
-                /*
-                let mut info;
-                let mut cs;
-                unsafe {
-                    skia_bindings::C_SkImageInfo_Construct(&mut info);
-                    cs = skia_bindings::C_SkColorSpace_MakeSRGB();
-                    //skia_bindings::C_SkImageInfo_Make(&mut info, bmpw, bmph, kBGRA_8888_SkColorType, kPremul_SkAlphaType, &mut cs);
-                    info = skia_bindings::SkImageInfo::MakeS32(bmpw, bmph, skia_bindings::SkAlphaType::Premul);
-                }*/
-
-                let min_row_bytes = info.min_row_bytes();
-                let mut surface = skia_safe::Surface::new_raster_direct(
-                    &info,
-                    pixels_p,
-                    Some(min_row_bytes),
-                    None,
-                ).unwrap();
-
-                let canvas = surface.canvas();
-
-                canvas.clear(if window.theme() == winit::window::Theme::Dark { skia_safe::Color::DARK_GRAY } else { skia_safe::Color::WHITE });
-                let mut paint = skia_safe::Paint::default();
-                paint.set_color4f(if hovering {
-                    colors::BLUE
-                } else {
-                    colors::RED
-                }, None);
-                paint.set_anti_alias(true);
-                canvas.draw_circle((100, 100), 90.0, &paint);
-                if let Some(text) = skia_safe::TextBlob::new("Hello World", &skia_safe::Font::default()) {
-                    canvas.draw_text_blob(text, (200, 100), &paint);
-                }
-                canvas.draw_circle((pos.x, pos.y), 5.0, &paint);
-
-                windows::Win32::Graphics::Gdi::StretchDIBits(hdc, 0, 0, bmpw, bmph, 0, 0, bmpw, bmph, pixels.as_ptr() as *const c_void, bmpInfo, DIB_RGB_COLORS, SRCCOPY);
-
-                windows::Win32::Graphics::Gdi::EndPaint(hwnd, &paintStruct);
-            }
-            _ => {
-                println!("Lul");
-            }
-        }
+impl Clickable for Test{
+    fn get_click_state(&mut self) -> &mut ClickState {
+        &mut self.click_state
     }
+}
+
+impl Hoverable for Test {
+    fn get_hover_state(&mut self) -> &mut HoverState {
+        &mut self.hover_state
+    }
+}
+
+impl MouseInteract for Test {
+    fn on_mouse_button_down(&mut self, event: MouseButtonEvent) {
+        println!("Meep");
+        (self as &mut dyn Clickable).on_mouse_button_down(event);
+    }
+}
+
+fn draw(window : &mut winit::window::Window, painter : &mut paint::Painter) {
+    let canvas = painter.canvas();
+
+    canvas.clear(if window.theme() == winit::window::Theme::Dark { skia_safe::Color::DARK_GRAY } else { skia_safe::Color::WHITE });
+
+    let mut paint = skia_safe::Paint::default();
+    paint.set_anti_alias(true);
+    paint.set_color4f(if false {
+        colors::BLUE
+    } else {
+        colors::RED
+    }, None);
+
+    canvas.draw_circle((100, 100), 90.0, &paint);
+
+    if let Some(text) = skia_safe::TextBlob::new("Hello World", &skia_safe::Font::default()) {
+        canvas.draw_text_blob(text, (200, 100), &paint);
+    }
+
+    //canvas.draw_circle((pos.x, pos.y), 5.0, &paint);
 }
