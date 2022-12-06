@@ -1,3 +1,3 @@
 mod platform;
 
-pub use platform::Platform;
+pub use platform::PlatformContext;

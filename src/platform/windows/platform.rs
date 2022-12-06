@@ -6,7 +6,7 @@ use winit::window::Window;
 
 pub struct Platform {}
 
-impl crate::platform::common::Platform for Platform {
+impl crate::platform::common::PlatformContext for Platform {
     fn IntializeWindow(window: &mut Window) {
 
     }
