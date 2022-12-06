@@ -1,27 +1,18 @@
 extern crate core;
 
-use std::cmp::max;
-use std::os::raw::c_void;
-use cgmath::InnerSpace;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use skia_bindings::SkColorType::kBGRA_8888_SkColorType;
-use skia_safe::{Color4f, colors};
+use std::rc::Rc;
+use skia_safe::{colors};
 use winit::{
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{EventLoop},
     window::WindowBuilder,
 };
-use winit::window::{Theme, Window};
 
 use ruitachi::*;
 use ruitachi::events::MouseButtonEvent;
-use ruitachi::paint::Painter;
+
 use ruitachi::platform::common::PlatformContext;
+use ruitachi::util::WidgetRef;
 use ruitachi::widgets::{Clickable, ClickState, Hoverable, HoverState, MouseInteract};
-
-static mut hovering: bool = true;
-
-mod meep;
 
 fn main() {
     let mut event_loop = EventLoop::new();
@@ -32,7 +23,9 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut platform_context = platform::wayland::Context::new(&mut window, &mut event_loop);
+    let mut window_widget: WidgetRef<dyn crate::widgets::Window> = WidgetRef::new(std::cell::RefCell::new(crate::widgets::WindowImpl{}));
+
+    let mut platform_context = platform::wayland::Context::new(&mut window, &mut event_loop, window_widget);
     platform_context.run(&mut window, &mut event_loop);
     //crate::meep::run();
 }
@@ -61,14 +54,14 @@ impl MouseInteract for Test {
     }
 }
 
-fn draw(window : &mut winit::window::Window, painter : &mut paint::Painter) {
+fn draw(_window : &mut winit::window::Window, painter : &mut paint::Painter) {
     let canvas = painter.canvas();
 
     //canvas.clear(if window.theme() == winit::window::Theme::Dark { skia_safe::Color::DARK_GRAY } else { skia_safe::Color::WHITE });
 
     let mut paint = skia_safe::Paint::default();
     paint.set_anti_alias(true);
-    paint.set_color4f(if unsafe { hovering } {
+    paint.set_color4f(if unsafe { true } {
         colors::BLUE
     } else {
         colors::RED

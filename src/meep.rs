@@ -6,16 +6,15 @@ use std::{
     cmp::min,
     io::{BufWriter, Write},
     os::unix::io::AsRawFd,
-    process::exit,
     time::Instant,
 };
 
 use wayland_client::{
     event_enum,
-    protocol::{wl_compositor, wl_keyboard, wl_pointer, wl_seat, wl_shm},
-    Display, Filter, GlobalManager,
+    protocol::{wl_compositor, wl_keyboard, wl_pointer, wl_shm},
+    Display, GlobalManager,
 };
-use wayland_protocols::xdg_shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base};
+
 
 // declare an event enum containing the events we want to receive in the iterator
 event_enum!(

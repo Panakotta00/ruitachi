@@ -1,41 +1,82 @@
-use std::cmp::max;
-use std::sync::{Arc, Mutex};
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle, WaylandHandle};
-use skia_safe::colors;
-use wayland_client::protocol::wl_buffer::WlBuffer;
-use wayland_client::protocol::wl_display::WlDisplay;
-use winit::window::Window;
-use wayland_client::protocol::wl_surface::WlSurface;
-use wayland_client::{Attached, Display, EventQueue, GlobalManager, Main, Proxy};
-use winit::event::{Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::platform::unix::{EventLoopWindowTargetExtUnix, WindowExtUnix};
-use winit::platform::unix::x11::ffi::Connection;
+use wayland_client::{
+    protocol::{
+        wl_buffer::WlBuffer, wl_display::WlDisplay, wl_surface::WlSurface,
+    },
+    Attached, Display, EventQueue, GlobalManager, Main, Proxy,
+};
+use winit::{
+    window::Window,
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    platform::unix::{EventLoopWindowTargetExtUnix, WindowExtUnix},
+};
+
 use crate::paint;
 use std::{fs::File, os::unix::prelude::AsRawFd};
 use std::borrow::BorrowMut;
-use std::io::{Read, Write};
-use memmap2::Mmap;
+use std::io::{Seek, SeekFrom, Write};
 
 use wayland_client::{
     protocol::{
-        wl_buffer, wl_compositor, wl_keyboard, wl_registry, wl_seat, wl_shm, wl_shm_pool,
-        wl_surface,
+        wl_shm,
     },
 };
+use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub struct Context {
+    window_widget: crate::util::WidgetRef<dyn crate::widgets::Window>,
+    temp_file: File,
     wayland_event_queue: EventQueue,
     wayland_surface: Attached<WlSurface>,
     wayland_display: Attached<WlDisplay>,
-    wayland_buffer: Option<Main<WlBuffer>>,
+    wayland_pool: Option<Main<WlShmPool>>,
     wayland_globals: GlobalManager,
-    temp_file: File,
+    wayland_buffer: Option<Main<WlBuffer>>,
+    buffer_map: Option<memmap2::MmapMut>,
+    size: (i32, i32),
+}
+
+impl Context {
+    fn resize(&mut self, (width, height): (i32, i32)) {
+        let buffer_size = width * height * 4;
+        let old_buffer_size = self.size.0 * self.size.1 * 4;
+
+        // resize buffer
+        self.temp_file.set_len(buffer_size as u64).unwrap();
+
+        self.buffer_map = Some(unsafe { memmap2::MmapMut::map_mut(self.temp_file.as_raw_fd()).expect("Unable to map draw-buffer to memory") });
+
+        // Resize wayland pool & buffer
+        if old_buffer_size > buffer_size || self.wayland_pool.is_none() {
+            // Create Wayland Draw Buffer
+            let shm = self.wayland_globals.instantiate_exact::<wl_shm::WlShm>(1).unwrap();
+            self.wayland_pool = Some(shm.create_pool(
+                self.temp_file.as_raw_fd(),
+                buffer_size,
+            ));
+        } else {
+            self.wayland_pool.as_mut().unwrap().resize(buffer_size);
+        }
+        self.wayland_buffer = Some(self.wayland_pool.as_mut().unwrap().create_buffer(
+            0,
+            width,
+            height,
+            width * 4,
+            wl_shm::Format::Argb8888,
+        ));
+
+        // Flush to wayland
+        self.wayland_surface.attach(Some(self.wayland_buffer.as_ref().unwrap()), 0, 0);
+        self.wayland_event_queue.sync_roundtrip(&mut (), |_, _, _| {}).expect("meep");
+
+        self.size = (width, height);
+    }
 }
 
 impl<E> crate::platform::common::PlatformContext<E> for Context {
-    fn new(window: &mut Window, event_loop: &mut EventLoop<E>) -> Context {
+    fn new(window: &mut Window, event_loop: &mut EventLoop<E>, window_widget: crate::util::WidgetRef<dyn crate::widgets::Window>) -> Self {
+        // Create Wayland connection and get necessary globals
         let mut wayland_event_queue = event_loop.wayland_display().map(|display| {
             unsafe { Display::from_external_display(display as _) }.create_event_queue()
         }).unwrap();
@@ -45,50 +86,29 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
         let wayland_display = display.attach(wayland_event_queue.token());
 
         let wayland_globals = GlobalManager::new(&wayland_display);
-
         wayland_event_queue.sync_roundtrip(&mut (), |_, _, _| unreachable!()).unwrap();
 
-        let (buf_x, buf_y) = (320, 240);
-
+        // Create Draw buffer
         let mut temp = tempfile::tempfile().unwrap();
-        let len = buf_x * buf_y * 4;
-        let mut temp_arr = Vec::with_capacity(len as usize);
-        temp_arr.resize(len as usize, 0);
-        temp.write_all(temp_arr.borrow_mut()).unwrap();
-        temp.flush();
-        draw_wl(&mut temp, (buf_x, buf_y));
 
-        let shm = wayland_globals.instantiate_exact::<wl_shm::WlShm>(1).unwrap();
-        let pool = shm.create_pool(
-            temp.as_raw_fd(),            // RawFd to the tempfile serving as shared memory
-            (buf_x * buf_y * 4) as i32, // size in bytes of the shared memory (4 bytes per pixel)
-        );
-        let buffer = pool.create_buffer(
-            0,                        // Start of the buffer in the pool
-            buf_x as i32,             // width of the buffer in pixels
-            buf_y as i32,             // height of the buffer in pixels
-            (buf_x * 4) as i32,       // number of bytes between the beginning of two consecutive lines
-            wl_shm::Format::Argb8888, // chosen encoding for the data
-        );
+        let size = window.outer_size();
 
-        wayland_surface.commit();
-        wayland_event_queue.sync_roundtrip(&mut (), |_, _, _| {}).expect("meep");
-        println!("nice");
-        wayland_surface.attach(Some(&buffer), 0, 0);
-        println!("okay");
-        wayland_surface.commit();
-        println!("fuck");
-        wayland_event_queue.sync_roundtrip(&mut (), |_, _, _| {}).expect("meep");
-        println!("mhm");
-
-        Self {
+        let mut context = Self{
+            window_widget,
+            temp_file: temp,
             wayland_event_queue,
             wayland_surface,
             wayland_display,
-            wayland_buffer: Some(buffer),
             wayland_globals,
-            temp_file: temp,
-        }
+            wayland_pool: None,
+            wayland_buffer: None,
+            buffer_map: None,
+            size: (size.width as i32, size.height as i32),
+        };
+
+        context.resize((size.width as i32, size.height as i32));
+
+        context
     }
 
     fn run(&mut self, window: &mut Window, event_loop: &mut EventLoop<E>) {
@@ -100,20 +120,39 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
                     event: WindowEvent::CloseRequested,
                     window_id,
                 } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(size),
+                    window_id
+                } if window_id == window.id() => {
+                    self.resize((size.width as i32, size.height as i32));
+                },
                 Event::RedrawRequested(_) => {
+                    // Create Skia Context/Image/Buffer/Surface
+                    let skia_info = skia_safe::ImageInfo::new(
+                        self.size,
+                        skia_safe::ColorType::BGRA8888,
+                        skia_safe::AlphaType::Unpremul,
+                        None,
+                    );
+                    let min_row_bytes = skia_info.min_row_bytes();
+                    let mut skia_surface = skia_safe::Surface::new_raster_direct(
+                        &skia_info,
+                        self.buffer_map.as_mut().unwrap(),
+                        Some(min_row_bytes),
+                        None,
+                    ).expect("Unable to create Skia drawing surface");
 
-                    //draw_wl(&mut self.temp_file, (100, 100));
+                    let mut window = self.window_widget.as_ref().borrow_mut();
+                    window.draw(&mut skia_surface);
 
-
-
-                    //self.wayland_surface.commit();
-                    //self.DrawWindow(self, window, draw)
+                    self.wayland_surface.commit();
+                    self.wayland_event_queue.sync_roundtrip(&mut (), |_, _, _| {}).unwrap();
                 },
                 Event::WindowEvent {
                     event: WindowEvent::CursorMoved {
                         device_id: _,
-                        position,
-                        modifiers
+                        position: _,
+                        modifiers: _
                     },
                     window_id,
                 } if window_id == window.id() => {
@@ -124,8 +163,8 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
                 Event::WindowEvent {
                     event: WindowEvent::MouseInput {
                         device_id: _,
-                        button: button,
-                        state: state,
+                        button,
+                        state: _,
                         modifiers: _,
                     },
                     window_id,
@@ -146,102 +185,4 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
             }
         });
     }
-
-    fn draw_window(&mut self, window: &mut Window, func: fn(&mut Window, &mut crate::paint::Painter)) {
-        /*let (bmpw, bmph) = (320, 240);
-        let info = skia_safe::ImageInfo::new(
-            (bmpw, bmph),
-            skia_safe::ColorType::BGRA8888,
-            skia_safe::AlphaType::Unpremul,
-            None,
-        );*/
-
-        /*
-        let mut info;
-        let mut cs;
-        unsafe {
-            skia_bindings::C_SkImageInfo_Construct(&mut info);
-            cs = skia_bindings::C_SkColorSpace_MakeSRGB();
-            //skia_bindings::C_SkImageInfo_Make(&mut info, bmpw, bmph, kBGRA_8888_SkColorType, kPremul_SkAlphaType, &mut cs);
-            info = skia_bindings::SkImageInfo::MakeS32(bmpw, bmph, skia_bindings::SkAlphaType::Premul);
-        }*/
-
-        /*let min_row_bytes = info.min_row_bytes();
-        let mut surface = skia_safe::Surface::new_raster_direct(
-            &info,
-            pixels_p,
-            Some(min_row_bytes),
-            None,
-        ).unwrap();
-
-        func(window, &mut surface);
-
-        unsafe {
-            //windows::Win32::Graphics::Gdi::StretchDIBits(hdc, 0, 0, bmpw, bmph, 0, 0, bmpw, bmph, pixels.as_ptr() as *const c_void, bmpInfo, DIB_RGB_COLORS, SRCCOPY);
-
-            //windows::Win32::Graphics::Gdi::EndPaint(hwnd, &paintStruct);
-        }*/
-    }
-}
-
-fn draw(window : &mut winit::window::Window, painter : &mut paint::Painter) {
-    let canvas = painter.canvas();
-
-    //canvas.clear(if window.theme() == winit::window::Theme::Dark { skia_safe::Color::DARK_GRAY } else { skia_safe::Color::WHITE });
-
-    let mut paint = skia_safe::Paint::default();
-    paint.set_anti_alias(true);
-    /*paint.set_color4f(if unsafe { hovering } {
-        colors::BLUE
-    } else {
-        colors::RED
-    }, None);*/
-
-    canvas.draw_circle((100, 100), 90.0, &paint);
-
-    if let Some(text) = skia_safe::TextBlob::new("Hello World", &skia_safe::Font::default()) {
-        canvas.draw_text_blob(text, (200, 100), &paint);
-    }
-
-    //canvas.draw_circle((pos.x, pos.y), 5.0, &paint);
-}
-
-fn draw_wl(tmp: &mut File, (buf_x, buf_y): (u32, u32)) {
-    //use std::{cmp::min, io::Write};
-    /*for y in 0..buf_y {
-        for x in 0..buf_x {
-            let a = 0xFF;
-            let r = min(((buf_x - x) * 0xFF) / buf_x, ((buf_y - y) * 0xFF) / buf_y);
-            let g = min((x * 0xFF) / buf_x, ((buf_y - y) * 0xFF) / buf_y);
-            let b = min(((buf_x - x) * 0xFF) / buf_x, (y * 0xFF) / buf_y);
-
-            let color = (a << 24) + (r << 16) + (g << 8) + b;
-            buf.write_all(&color.to_ne_bytes()).unwrap();
-        }
-    }*/
-    let (bmpw, bmph) = (320, 240);
-
-    let info = skia_safe::ImageInfo::new(
-        (bmpw, bmph),
-        skia_safe::ColorType::BGRA8888,
-        skia_safe::AlphaType::Unpremul,
-        None,
-    );
-
-    let mut buf = unsafe { memmap2::MmapMut::map_mut(tmp.as_raw_fd()).unwrap() };
-
-    let min_row_bytes = info.min_row_bytes();
-    let mut surface = skia_safe::Surface::new_raster_direct(
-        &info,
-        buf.as_mut(),
-        Some(min_row_bytes),
-        None,
-    ).unwrap();
-
-    let canvas = surface.canvas();
-    canvas.clear(skia_safe::Color::DARK_GRAY);
-    let mut paint = skia_safe::Paint::default();
-    paint.set_anti_alias(true);
-    paint.set_color(skia_safe::Color::BLUE);
-    canvas.draw_circle((100, 100), 90.0, &paint);
 }

@@ -15,13 +15,13 @@ impl Default for HoverState {
 pub trait Hoverable {
     fn get_hover_state(&mut self) -> &mut HoverState;
 
-    fn on_mouse_enter(&mut self, event : PointerEvent) {}
-    fn on_mouse_leave(&mut self, event : PointerEvent) {}
+    fn on_mouse_enter(&mut self, _event : PointerEvent) {}
+    fn on_mouse_leave(&mut self, _event : PointerEvent) {}
 }
 
 pub trait MouseInteract {
-    fn on_mouse_button_down(&mut self, event : MouseButtonEvent) {}
-    fn on_mouse_button_up(&mut self, event : MouseButtonEvent) {}
+    fn on_mouse_button_down(&mut self, _event : MouseButtonEvent) {}
+    fn on_mouse_button_up(&mut self, _event : MouseButtonEvent) {}
 }
 
 pub struct ClickState {
@@ -37,7 +37,7 @@ impl Default for ClickState {
 }
 
 impl ClickState {
-    fn on_mouse_button_down(&mut self, event : MouseButtonEvent) {
+    fn on_mouse_button_down(&mut self, _event : MouseButtonEvent) {
         self.clicked = true
     }
 
@@ -48,7 +48,7 @@ impl ClickState {
         self.clicked = false;
     }
 
-    fn on_mouse_move(&mut self, event : PointerEvent) {
+    fn on_mouse_move(&mut self, _event : PointerEvent) {
 
     }
 }
@@ -56,7 +56,7 @@ impl ClickState {
 pub trait Clickable : MouseInteract + Hoverable {
     fn get_click_state(&mut self) -> &mut ClickState;
 
-    fn on_click(&mut self, event : MouseButtonEvent) {}
+    fn on_click(&mut self, _event : MouseButtonEvent) {}
 }
 
 pub trait Widget {
