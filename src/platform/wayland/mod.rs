@@ -142,7 +142,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
                         None,
                     ).expect("Unable to create Skia drawing surface");
 
-                    let mut window = self.window_widget.as_ref().borrow_mut();
+                    let mut window = self.window_widget.get();
                     window.draw(&mut skia_surface);
 
                     self.wayland_surface.commit();

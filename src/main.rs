@@ -1,5 +1,10 @@
+#![feature(coerce_unsized )]
+#![feature(unsize)]
+
 extern crate core;
 
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::rc::Rc;
 use skia_safe::{colors};
 use winit::{
@@ -23,11 +28,12 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut window_widget: WidgetRef<dyn crate::widgets::Window> = WidgetRef::new(std::cell::RefCell::new(crate::widgets::WindowImpl{}));
-
+    let mut window_widget: WidgetRef<dyn crate::widgets::Window> = WidgetRef::new(crate::widgets::WindowImpl{}).into();
     let mut platform_context = platform::wayland::Context::new(&mut window, &mut event_loop, window_widget);
     platform_context.run(&mut window, &mut event_loop);
     //crate::meep::run();
+    let mut test: Rc<RefCell<crate::widgets::WindowImpl>> = Rc::new(RefCell::new(crate::widgets::WindowImpl{}));
+    let mut meep: Rc<RefCell<dyn crate::widgets::Window>> = test;
 }
 
 struct Test {
