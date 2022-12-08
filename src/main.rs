@@ -28,12 +28,11 @@ fn main() {
         .build(&event_loop)
         .unwrap();
 
-    let mut window_widget: WidgetRef<dyn crate::widgets::Window> = WidgetRef::new(crate::widgets::WindowImpl{}).into();
-    let mut platform_context = platform::wayland::Context::new(&mut window, &mut event_loop, window_widget);
+    let mut window_widget: WidgetRef<dyn crate::widgets::Window> = WidgetRef::new(crate::widgets::WindowImpl{});
+
+    let mut platform_context = platform::Context::new(&mut window, &mut event_loop, window_widget);
+
     platform_context.run(&mut window, &mut event_loop);
-    //crate::meep::run();
-    let mut test: Rc<RefCell<crate::widgets::WindowImpl>> = Rc::new(RefCell::new(crate::widgets::WindowImpl{}));
-    let mut meep: Rc<RefCell<dyn crate::widgets::Window>> = test;
 }
 
 struct Test {
