@@ -1,81 +1,55 @@
-use crate::events::{MouseButtonEvent, PointerEvent};
+use crate::events::{MouseButtonEvent, PointerEvent, Reply};
+use crate::paint::Painter;
+use crate::util::{Geometry, WidgetRef};
+use cgmath::Vector2;
+use rand::Rng;
+use skia_safe::{scalar, Color, Color4f, Paint, PixelGeometry, Rect};
+use std::cmp::max;
 
-pub struct HoverState {
-    pub is_hovered : bool
+pub struct WidgetArrangement {
+	pub widget: WidgetRef<dyn Widget>,
+	pub geometry: Geometry,
 }
 
-impl Default for HoverState {
-    fn default() -> Self {
-        HoverState {
-            is_hovered: false,
-        }
-    }
+impl WidgetArrangement {
+	pub fn new(widget: WidgetRef<dyn Widget>, geometry: Geometry) -> Self {
+		Self { widget, geometry }
+	}
 }
 
-pub trait Hoverable {
-    fn get_hover_state(&mut self) -> &mut HoverState;
+pub type Children<'a> = Box<dyn Iterator<Item=&'a WidgetRef<dyn Widget>> + 'a>;
 
-    fn on_mouse_enter(&mut self, _event : PointerEvent) {}
-    fn on_mouse_leave(&mut self, _event : PointerEvent) {}
-}
-
-pub trait MouseInteract {
-    fn on_mouse_button_down(&mut self, _event : MouseButtonEvent) {}
-    fn on_mouse_button_up(&mut self, _event : MouseButtonEvent) {}
-}
-
-pub struct ClickState {
-    clicked : bool,
-}
-
-impl Default for ClickState {
-    fn default() -> Self {
-        ClickState {
-            clicked: false,
-        }
-    }
-}
-
-impl ClickState {
-    fn on_mouse_button_down(&mut self, _event : MouseButtonEvent) {
-        self.clicked = true
-    }
-
-    fn on_mouse_button_up(&mut self, clickable : &mut dyn Clickable, event : MouseButtonEvent) {
-        if self.clicked {
-            clickable.on_click(event);
-        }
-        self.clicked = false;
-    }
-
-    fn on_mouse_move(&mut self, _event : PointerEvent) {
-
-    }
-}
-
-pub trait Clickable : MouseInteract + Hoverable {
-    fn get_click_state(&mut self) -> &mut ClickState;
-
-    fn on_click(&mut self, _event : MouseButtonEvent) {}
+#[derive(Default)]
+pub struct WidgetState {
+	parent: Option<WidgetRef<dyn Widget>>,
+	cached_geometry: Geometry,
 }
 
 pub trait Widget {
-    fn get_parent(&self) -> Option<&mut Self>;
+	fn widget_state(&self) -> &WidgetState;
+	fn widget_state_mut(&mut self) -> &mut WidgetState;
 
-    fn paint(painter : &mut crate::paint::Painter);
+	fn get_parent(&self) -> Option<WidgetRef<dyn Widget>> {
+		self.widget_state().parent.clone()
+	}
 
-    fn on_click(event : MouseButtonEvent);
-    fn on_hover(event : PointerEvent);
-}
+	fn set_parent(&mut self, parent: Option<WidgetRef<dyn Widget>>) {
+		self.widget_state_mut().parent = parent;
+	}
 
-pub struct Button {
-    text : String,
+	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+		layer
+	}
 
-    hover_state : HoverState,
-}
+	fn get_desired_size(&self) -> Vector2<scalar> {
+		Vector2::new(0.0, 0.0)
+	}
 
-impl Hoverable for Button {
-    fn get_hover_state(&mut self) -> &mut HoverState {
-        &mut self.hover_state
-    }
+	fn get_children(&self) -> Children<'_> {
+		Box::new(std::iter::empty())
+	}
+
+	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+		Vec::new()
+	}
 }

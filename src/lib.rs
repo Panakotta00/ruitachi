@@ -1,8 +1,8 @@
-#![feature(coerce_unsized )]
+#![feature(coerce_unsized)]
 #![feature(unsize)]
 
+pub mod events;
 pub mod paint;
 pub mod platform;
-pub mod events;
-pub mod widgets;
 pub mod util;
+pub mod widgets;
