@@ -1,8 +1,9 @@
+use cgmath::Vector2;
 use crate::paint::Painter;
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetState};
 use rand::Rng;
-use skia_safe::{Paint, Rect};
+use skia_safe::{Paint, Rect, scalar};
 
 pub struct TestWidget {
 	widget: WidgetState,
@@ -58,5 +59,9 @@ impl Widget for TestWidget {
 			&self.paint,
 		);
 		layer + 1
+	}
+
+	fn get_desired_size(&self) -> Vector2<scalar> {
+		Vector2::new(10.0, 10.0)
 	}
 }

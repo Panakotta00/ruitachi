@@ -5,6 +5,7 @@ use crate::widgets::{Widget, WidgetArrangement};
 use cgmath::Vector2;
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::{RefCell, RefMut};
+use std::cmp::Ordering;
 use std::marker::Unsize;
 use std::ops::{CoerceUnsized, Deref, DerefMut};
 use std::rc::Rc;
@@ -29,7 +30,12 @@ impl<T, U> CoerceUnsized<WidgetRef<U>> for WidgetRef<T>
 where
 	T: Unsize<U> + ?Sized,
 	U: ?Sized,
-{
+{}
+
+impl<T: ?Sized> PartialEq<Self> for &WidgetRef<T> {
+	fn eq(&self, other: &Self) -> bool {
+		Rc::ptr_eq(&self.0, &other.0)
+	}
 }
 
 impl<T: ?Sized> WidgetRef<T> {

@@ -43,7 +43,7 @@ fn main() {
 
 	let panel = HorizontalPanelWidget::new()
 		.slot(test3, Growth::Val(1.0))
-		.slot(test4, Growth::Val(0.5))
+		.slot(test4, Growth::Val(0.1))
 		.slot(panel, Growth::Val(1.0))
 		.build();
 
