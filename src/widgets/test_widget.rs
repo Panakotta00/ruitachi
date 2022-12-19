@@ -8,6 +8,7 @@ use skia_safe::{Paint, Rect, scalar};
 pub struct TestWidget {
 	widget: WidgetState,
 	paint: Paint,
+	size: Vector2<scalar>,
 }
 
 pub struct TestWidgetBuilder(TestWidget);
@@ -32,11 +33,17 @@ impl TestWidget {
 		TestWidgetBuilder(TestWidget {
 			widget: WidgetState::default(),
 			paint,
+			size: Vector2::new(10.0, 10.0)
 		})
 	}
 }
 
 impl TestWidgetBuilder {
+	pub fn size(mut self, size: Vector2<scalar>) -> Self {
+		self.0.size = size;
+		self
+	}
+
 	pub fn build(self) -> WidgetRef<TestWidget> {
 		WidgetRef::new(self.0)
 	}
@@ -62,6 +69,6 @@ impl Widget for TestWidget {
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
-		Vector2::new(10.0, 10.0)
+		self.size
 	}
 }

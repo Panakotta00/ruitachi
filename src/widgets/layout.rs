@@ -1,13 +1,15 @@
 pub enum HorizontalAlignment{
     Left,
     Center,
-    Right
+    Right,
+    Fill,
 }
 
 pub enum VerticalAlignment {
     Top,
     Center,
     Bottom,
+    Fill,
 }
 
 pub enum Growth {

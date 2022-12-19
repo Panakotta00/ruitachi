@@ -7,6 +7,7 @@ use skia_safe::colors;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::rc::Rc;
+use cgmath::Vector2;
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
 use ruitachi::events::MouseButtonEvent;
@@ -14,7 +15,7 @@ use ruitachi::*;
 
 use ruitachi::platform::common::PlatformContext;
 use ruitachi::util::WidgetRef;
-use ruitachi::widgets::{Growth, HorizontalPanelWidget, TestWidget, WindowWidget};
+use ruitachi::widgets::{BoxPanel, Growth, HorizontalAlignment, LinearPanelDirection, LinearPanel, OverlayPanel, TestWidget, VerticalAlignment, WindowWidget};
 
 fn main() {
 	let mut event_loop = EventLoop::new();
@@ -27,6 +28,7 @@ fn main() {
 
 	let test1 = TestWidget::new().build();
 	let test2 = TestWidget::new().build();
+	let test21 = TestWidget::new().size(Vector2::new(20.0, 20.0)).build();
 
 	let test3 = TestWidget::new().build();
 	let test4 = TestWidget::new().build();
@@ -34,22 +36,29 @@ fn main() {
 	let test5 = TestWidget::new().build();
 	let test6 = TestWidget::new().build();
 	let test7 = TestWidget::new().build();
-
-	let panel = HorizontalPanelWidget::new()
+	let panel = LinearPanel::new(LinearPanelDirection::Horizontal)
 		.slot(test5, Growth::Fill)
 		.slot(test6, Growth::Fit)
 		.slot(test7,Growth::Fit)
 		.build();
 
-	let panel = HorizontalPanelWidget::new()
+	let panel = LinearPanel::new(LinearPanelDirection::Vertical)
 		.slot(test3, Growth::Val(1.0))
 		.slot(test4, Growth::Val(0.1))
 		.slot(panel, Growth::Val(1.0))
 		.build();
 
-	let panel = HorizontalPanelWidget::new()
-		.slot(test1, Growth::Fill)
-		.slot(test2, Growth::Fill)
+	let panel = LinearPanel::new(LinearPanelDirection::Horizontal)
+		.slot(
+			BoxPanel::new(test1)
+				.v_align(VerticalAlignment::Center)
+				.h_align(HorizontalAlignment::Fill)
+				.build(), Growth::Fill)
+		.slot(
+			OverlayPanel::new()
+				.slot(BoxPanel::new(test21).build())
+				.slot(BoxPanel::new(test2).build())
+				.build(), Growth::Fill)
 		.slot(panel, Growth::Fill)
 		.build();
 
