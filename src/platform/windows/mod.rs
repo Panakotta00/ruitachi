@@ -1,8 +1,10 @@
-use crate::util::WidgetRef;
+use crate::util::{Geometry, WidgetRef};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle, Win32Handle};
 use std::borrow::BorrowMut;
 use std::cmp::max;
 use std::ffi::c_void;
+use cgmath::Vector2;
+use skia_safe::scalar;
 use windows::Win32::Graphics::Gdi::{
 	BeginPaint, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, PAINTSTRUCT, RGBQUAD, SRCCOPY,
 };
@@ -10,6 +12,8 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::Window;
+use crate::events;
+use crate::events::{EventContext, WidgetEvent};
 
 pub struct Context {
 	window_widget: WidgetRef<dyn crate::widgets::Window>,
@@ -17,6 +21,8 @@ pub struct Context {
 	hwnd: windows::Win32::Foundation::HWND,
 	size: (i32, i32),
 	bmp_info: Option<Vec<u8>>,
+	last_cursor_pos: Vector2<scalar>,
+	event_context: EventContext,
 }
 
 impl Context {
@@ -74,8 +80,10 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 			window_widget,
 			handle,
 			hwnd,
-			size: (0, 0),
 			bmp_info: None,
+			size: (0, 0),
+			last_cursor_pos: Vector2::new(0.0, 0.0),
+			event_context: EventContext::new(),
 		};
 
 		context.resize((size.width as i32, size.height as i32));
@@ -132,6 +140,11 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					window.draw(&mut skia_surface);
 
 					unsafe {
+						windows::Win32::Graphics::Gdi::InvalidateRect(
+							self.hwnd,
+							std::ptr::null(),
+							true,
+						);
 						let mut paint_struct = PAINTSTRUCT::default();
 						let hdc = BeginPaint(self.hwnd, &mut paint_struct);
 						windows::Win32::Graphics::Gdi::StretchDIBits(
@@ -151,26 +164,30 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 						);
 						windows::Win32::Graphics::Gdi::EndPaint(self.hwnd, &paint_struct);
 					}
-
-					unsafe {
-						windows::Win32::Graphics::Gdi::InvalidateRect(
-							self.hwnd,
-							std::ptr::null(),
-							false,
-						);
-					}
 				}
 				Event::WindowEvent {
 					event:
 						WindowEvent::CursorMoved {
 							device_id: _,
-							position: _,
+							position,
 							modifiers: _,
 						},
 					window_id,
 				} if window_id == window.id() => {
-					//pos = cgmath::vec2(position.x as f32, position.y as f32);
-					//hovering = (cgmath::vec2(position.x, position.y) - cgmath::vec2(100.0, 100.0)).magnitude() < 90.0;
+					let pos = Vector2::new(position.x as f32, position.y as f32);
+					self.last_cursor_pos = pos;
+					let size = window.inner_size();
+					let geometry = Geometry::new(
+						Vector2::new(0.0, 0.0),
+						Vector2::new(size.width as scalar, size.height as scalar),
+						Vector2::new(0.0, 0.0),
+						Vector2::new(1.0, 1.0),
+					);
+
+					// TODO: Add multi device support
+					let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &pos);
+					self.event_context.handle_mouse_move(&path, 0, &self.last_cursor_pos);
+
 					window.request_redraw();
 				}
 				Event::WindowEvent {
@@ -184,7 +201,18 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					window_id,
 				} if window_id == window.id() => {
 					if button == winit::event::MouseButton::Left {
-						//hovering = state == winit::event::ElementState::Pressed;
+						let size = window.inner_size();
+						let geometry = Geometry::new(
+							Vector2::new(0.0, 0.0),
+							Vector2::new(size.width as scalar, size.height as scalar),
+							Vector2::new(0.0, 0.0),
+							Vector2::new(1.0, 1.0),
+						);
+
+						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
+						let event = WidgetEvent::OnMouseInput;
+						let reply = events::bubble_event(&path, &event);
+
 						window.request_redraw();
 					}
 				}
