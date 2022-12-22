@@ -1,4 +1,4 @@
-use crate::events::{MouseButtonEvent, PointerEvent, Reply};
+use crate::events::{MouseButtonEvent, PointerEvent, Reply, WidgetEvent};
 use crate::paint::Painter;
 use crate::util::{Geometry, WidgetRef};
 use cgmath::Vector2;
@@ -51,5 +51,9 @@ pub trait Widget {
 
 	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
 		Vec::new()
+	}
+
+	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+		Reply::unhandled()
 	}
 }

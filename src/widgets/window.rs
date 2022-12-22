@@ -1,11 +1,24 @@
 use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Widget, WidgetState};
+use crate::widgets::{Widget, WidgetArrangement, WidgetState};
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Color, Paint, Rect};
+use crate::paint::Painter;
 
-pub trait Window {
-	fn draw(&mut self, painter: &mut crate::paint::Painter);
+pub trait Window: Widget {
+	fn draw(&mut self, painter: &mut Painter) {
+		let canvas = painter.canvas();
+		canvas.clear(skia_safe::Color::DARK_GRAY);
+
+		let geometry = Geometry::new(
+			Vector2::new(0.0, 0.0),
+			Vector2::new(painter.width() as scalar, painter.height() as scalar),
+			Vector2::new(0.0, 0.0),
+			Vector2::new(1.0, 1.0),
+		);
+
+		self.paint(geometry, 0, painter);
+	}
 }
 
 pub struct WindowWidget {
@@ -30,33 +43,30 @@ impl WindowWidgetBuilder {
 	}
 }
 
-impl Window for WindowWidget {
-	fn draw(&mut self, painter: &mut crate::paint::Painter) {
-		/*let mut rnd = rand::thread_rng();
-		let canvas = painter.canvas();
-		canvas.clear(skia_safe::Color::DARK_GRAY);
-		let mut paint = skia_safe::Paint::default();
-		paint.set_anti_alias(true);
-		//paint.set_color(skia_safe::Color::new(rnd.gen_range(0..0xFFFFFF) << 8 | 0xFF));
-		paint.set_color(skia_safe::Color::BLUE);
-		canvas.draw_circle((100, 100), 90.0, &paint);*/
+impl Window for WindowWidget {}
 
-		let canvas = painter.canvas();
-		canvas.clear(skia_safe::Color::DARK_GRAY);
+impl Widget for WindowWidget {
+	fn widget_state(&self) -> &WidgetState {
+		&self.widget
+	}
 
+	fn widget_state_mut(&mut self) -> &mut WidgetState {
+		&mut self.widget
+	}
+
+	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
 		if let Some(content) = &self.content {
-			let geometry = Geometry::new(
-				Vector2::new(0.0, 0.0),
-				Vector2::new(painter.width() as scalar, painter.height() as scalar),
-				Vector2::new(0.0, 0.0),
-				Vector2::new(1.0, 1.0),
-			);
-			content.get().paint(geometry, 0, painter);
+			content.get().paint(geometry, 0, painter)
+		} else {
+			layer
 		}
+	}
 
-		/*let mut paint = Paint::default();
-		paint.set_color(Color::BLUE);
-
-		canvas.draw_rect(Rect::new(100.0, 100.0, 200.0, 200.0), &paint);*/
+	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+		if let Some(content) = &self.content {
+			vec![WidgetArrangement::new(content.clone(), geometry)]
+		} else {
+			vec![]
+		}
 	}
 }

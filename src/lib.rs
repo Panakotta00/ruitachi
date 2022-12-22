@@ -1,5 +1,6 @@
 #![feature(coerce_unsized)]
 #![feature(unsize)]
+#![feature(trait_upcasting)]
 
 pub mod events;
 pub mod paint;

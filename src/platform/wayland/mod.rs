@@ -9,14 +9,18 @@ use winit::{
 	window::Window,
 };
 
-use crate::paint;
+use crate::{events, paint};
 use std::borrow::BorrowMut;
 use std::io::{Seek, SeekFrom, Write};
 use std::{fs::File, os::unix::prelude::AsRawFd};
+use cgmath::Vector2;
+use skia_safe::scalar;
 
 use wayland_client::protocol::wl_shm;
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use winit::platform::run_return::EventLoopExtRunReturn;
+use crate::events::WidgetEvent;
+use crate::util::Geometry;
 
 pub struct Context {
 	window_widget: crate::util::WidgetRef<dyn crate::widgets::Window>,
@@ -29,6 +33,7 @@ pub struct Context {
 	wayland_buffer: Option<Main<WlBuffer>>,
 	buffer_map: Option<memmap2::MmapMut>,
 	size: (i32, i32),
+	last_cursor_pos: Vector2<scalar>,
 }
 
 impl Context {
@@ -115,6 +120,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 			wayland_buffer: None,
 			buffer_map: None,
 			size: (size.width as i32, size.height as i32),
+			last_cursor_pos: Vector2::new(0.0, 0.0),
 		};
 
 		context.resize((size.width as i32, size.height as i32));
@@ -158,21 +164,37 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					window.draw(&mut skia_surface);
 
 					self.wayland_surface.commit();
+					self.wayland_surface
+						.attach(Some(self.wayland_buffer.as_ref().unwrap()), 0, 0);
+					self.wayland_surface.damage(0, 0, self.size.0, self.size.1);
 					self.wayland_event_queue
 						.sync_roundtrip(&mut (), |_, _, _| {})
 						.unwrap();
+
 				}
 				Event::WindowEvent {
 					event:
 						WindowEvent::CursorMoved {
 							device_id: _,
-							position: _,
+							position,
 							modifiers: _,
 						},
 					window_id,
 				} if window_id == window.id() => {
-					//pos = cgmath::vec2(position.x as f32, position.y as f32);
-					//hovering = (cgmath::vec2(position.x, position.y) - cgmath::vec2(100.0, 100.0)).magnitude() < 90.0;
+					let pos = Vector2::new(position.x as f32, position.y as f32);
+					self.last_cursor_pos = pos;
+					let size = window.inner_size();
+					let geometry = Geometry::new(
+						Vector2::new(0.0, 0.0),
+						Vector2::new(size.width as scalar, size.height as scalar),
+						Vector2::new(0.0, 0.0),
+						Vector2::new(1.0, 1.0),
+					);
+
+					let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &pos);
+					let event = WidgetEvent::OnMouseMove;
+					let reply = events::bubble_event(path, &event);
+
 					window.request_redraw();
 				}
 				Event::WindowEvent {
@@ -186,7 +208,18 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					window_id,
 				} if window_id == window.id() => {
 					if button == winit::event::MouseButton::Left {
-						//hovering = state == winit::event::ElementState::Pressed;
+						let size = window.inner_size();
+						let geometry = Geometry::new(
+							Vector2::new(0.0, 0.0),
+							Vector2::new(size.width as scalar, size.height as scalar),
+							Vector2::new(0.0, 0.0),
+							Vector2::new(1.0, 1.0),
+						);
+
+						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
+						let event = WidgetEvent::OnMouseInput;
+						let reply = events::bubble_event(path, &event);
+
 						window.request_redraw();
 					}
 				}

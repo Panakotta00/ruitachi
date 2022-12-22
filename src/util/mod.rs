@@ -116,6 +116,17 @@ impl Geometry {
 			},
 		}
 	}
+
+	pub fn contains_absolute_pos(&self, pos: &Vector2<scalar>) -> bool {
+		if self.absolute_pos.x > pos.x  || self.absolute_pos.y > pos.y {
+			return false;
+		}
+		let max = self.absolute_pos + self.local_size;
+		if max.x < pos.x || max.y < pos.y {
+			return false;
+		}
+		true
+	}
 }
 
 impl Default for Geometry {

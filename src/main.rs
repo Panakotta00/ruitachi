@@ -1,5 +1,6 @@
 #![feature(coerce_unsized)]
 #![feature(unsize)]
+#![feature(trait_upcasting)]
 
 extern crate core;
 
@@ -27,8 +28,8 @@ fn main() {
 		.unwrap();
 
 	let test1 = TestWidget::new().build();
-	let test2 = TestWidget::new().build();
-	let test21 = TestWidget::new().size(Vector2::new(20.0, 20.0)).build();
+	let test2 = TestWidget::new().name("Test2").build();
+	let test21 = TestWidget::new().size(Vector2::new(20.0, 20.0)).name("Test21").build();
 
 	let test3 = TestWidget::new().build();
 	let test4 = TestWidget::new().build();
@@ -52,13 +53,14 @@ fn main() {
 		.slot(
 			BoxPanel::new(test1)
 				.v_align(VerticalAlignment::Center)
-				.h_align(HorizontalAlignment::Fill)
+				.h_align(HorizontalAlignment::Center)
+				.override_y(20.0)
 				.build(), Growth::Fill)
 		.slot(
 			OverlayPanel::new()
 				.slot(BoxPanel::new(test21).build())
 				.slot(BoxPanel::new(test2).build())
-				.build(), Growth::Fill)
+				.build(), Growth::Fit)
 		.slot(panel, Growth::Fill)
 		.build();
 

@@ -4,11 +4,14 @@ use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetState};
 use rand::Rng;
 use skia_safe::{Paint, Rect, scalar};
+use crate::events::{Reply, WidgetEvent};
 
 pub struct TestWidget {
 	widget: WidgetState,
 	paint: Paint,
 	size: Vector2<scalar>,
+	name: String,
+	counter: i32,
 }
 
 pub struct TestWidgetBuilder(TestWidget);
@@ -28,12 +31,15 @@ impl TestWidget {
 
 		let mut paint = Paint::default();
 		paint.set_color(unsafe {
-			skia_safe::HSV::from((rng.gen_range(0.0..360.0), 1.0, 1.0)).to_color(255)
+			let val = rng.gen::<f32>() * 360.0;
+			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(255)
 		});
 		TestWidgetBuilder(TestWidget {
 			widget: WidgetState::default(),
 			paint,
-			size: Vector2::new(10.0, 10.0)
+			size: Vector2::new(10.0, 10.0),
+			name: "Unnamed".into(),
+			counter: 0,
 		})
 	}
 }
@@ -41,6 +47,11 @@ impl TestWidget {
 impl TestWidgetBuilder {
 	pub fn size(mut self, size: Vector2<scalar>) -> Self {
 		self.0.size = size;
+		self
+	}
+
+	pub fn name(mut self, name: &str) -> Self {
+		self.0.name = name.into();
 		self
 	}
 
@@ -70,5 +81,23 @@ impl Widget for TestWidget {
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
 		self.size
+	}
+
+	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+		match event {
+			WidgetEvent::OnMouseMove => {
+				println!("Mouse Move for {} {}!!!", self.name, self.counter);
+				self.counter += 1;
+			}
+			WidgetEvent::OnMouseInput => {
+				println!("Mouse Click for {} {}!!!", self.name, self.counter);
+				self.counter += 1;
+				self.paint.set_color(unsafe {
+					let val = TEST_WIDGET_RAND.as_mut().unwrap().gen::<f32>() * 360.0;
+					skia_safe::HSV::from((val, 1.0, 1.0)).to_color(255)
+				});
+			}
+		}
+		Reply::handled()
 	}
 }
