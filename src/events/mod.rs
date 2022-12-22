@@ -1,6 +1,6 @@
 mod events;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 use cgmath::Vector2;
 use skia_safe::scalar;
@@ -23,8 +23,10 @@ impl Reply {
 }
 
 pub enum WidgetEvent {
-	OnMouseMove,
 	OnMouseInput,
+	OnMouseEnter,
+	OnMouseMove,
+	OnMouseLeave,
 }
 
 pub struct WidgetPath {
@@ -121,26 +123,43 @@ pub fn bubble_event(path: &WidgetPath, event: &WidgetEvent) -> Reply {
 }
 
 pub struct EventContext {
-	cursors: Vec<CursorEventContext>,
+	cursors: HashMap<usize, CursorEventContext>,
 }
 
 pub struct CursorEventContext {
 	last_over_widgets: HashSet<WidgetRef<dyn Widget>>,
-	captured_by_widget: WidgetRef<dyn Widget>,
+	captured_by_widget: Option<WidgetRef<dyn Widget>>,
 }
 
 impl EventContext {
 	pub fn new() -> Self {
 		EventContext {
-			cursors: vec![],
+			cursors: HashMap::new(),
 		}
 	}
 
-	pub fn handle_mouse_move(widget_path: WidgetPath, cursor_index: i32) {
-		/*let mut over_widgets = vec![];
-		for widget in widget_path.iter() {
+	pub fn handle_mouse_move(&mut self, widget_path: &WidgetPath, cursor_index: usize, pos: &Vector2<scalar>) {
+		let cursor_ctx = self.cursors.entry(cursor_index).or_insert(CursorEventContext{
+			last_over_widgets: Default::default(),
+			captured_by_widget: None,
+		});
 
-		}*/
+		let mut over_widgets: HashSet<WidgetRef<dyn Widget>> = Default::default();
+		for widget in widget_path.bubble() {
+			over_widgets.insert(widget.clone());
+			if !cursor_ctx.last_over_widgets.remove(widget) {
+				let event = WidgetEvent::OnMouseEnter;
+				widget.get().on_event(&event);
+			}
+			let event = WidgetEvent::OnMouseMove;
+			widget.get().on_event(&event);
+		}
+
+		for widget in &cursor_ctx.last_over_widgets {
+			let event = WidgetEvent::OnMouseLeave;
+			widget.get().on_event(&event);
+		}
+		cursor_ctx.last_over_widgets = over_widgets;
 	}
 }
 

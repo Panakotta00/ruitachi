@@ -6,6 +6,7 @@ use cgmath::Vector2;
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::{RefCell, RefMut};
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use std::marker::Unsize;
 use std::ops::{CoerceUnsized, Deref, DerefMut};
 use std::rc::Rc;
@@ -32,9 +33,17 @@ where
 	U: ?Sized,
 {}
 
-impl<T: ?Sized> PartialEq<Self> for &WidgetRef<T> {
+impl<T: ?Sized> PartialEq<Self> for WidgetRef<T> {
 	fn eq(&self, other: &Self) -> bool {
 		Rc::ptr_eq(&self.0, &other.0)
+	}
+}
+
+impl<T: ?Sized> Eq for WidgetRef<T> {}
+
+impl<T: ?Sized> Hash for WidgetRef<T> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		state.write_usize(self.0.as_ptr() as *const () as usize);
 	}
 }
 

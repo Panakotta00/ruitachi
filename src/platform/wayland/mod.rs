@@ -19,7 +19,7 @@ use skia_safe::scalar;
 use wayland_client::protocol::wl_shm;
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use winit::platform::run_return::EventLoopExtRunReturn;
-use crate::events::WidgetEvent;
+use crate::events::{EventContext, WidgetEvent};
 use crate::util::Geometry;
 
 pub struct Context {
@@ -34,6 +34,7 @@ pub struct Context {
 	buffer_map: Option<memmap2::MmapMut>,
 	size: (i32, i32),
 	last_cursor_pos: Vector2<scalar>,
+	event_context: EventContext,
 }
 
 impl Context {
@@ -121,6 +122,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 			buffer_map: None,
 			size: (size.width as i32, size.height as i32),
 			last_cursor_pos: Vector2::new(0.0, 0.0),
+			event_context: EventContext::new(),
 		};
 
 		context.resize((size.width as i32, size.height as i32));
@@ -175,7 +177,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 				Event::WindowEvent {
 					event:
 						WindowEvent::CursorMoved {
-							device_id: _,
+							device_id: device_id,
 							position,
 							modifiers: _,
 						},
@@ -191,9 +193,9 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 						Vector2::new(1.0, 1.0),
 					);
 
+					// TODO: Add multi device support
 					let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &pos);
-					let event = WidgetEvent::OnMouseMove;
-					let reply = events::bubble_event(&path, &event);
+					self.event_context.handle_mouse_move(&path, 0, &self.last_cursor_pos);
 
 					window.request_redraw();
 				}
