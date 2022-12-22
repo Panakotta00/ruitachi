@@ -8,25 +8,58 @@ pub use events::*;
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, Window};
 
+pub enum WidgetFocusChange {
+	KeyboardList(Vec<usize>),
+	AllKeyboards,
+}
+
 pub struct Reply {
 	handled: bool,
+	take_focus: Option<WidgetFocusChange>,
+	free_focus: Option<WidgetFocusChange>,
 }
 
 impl Reply {
 	pub fn unhandled() -> Reply {
-		Reply { handled: false }
+		Reply {
+			handled: false,
+			take_focus: None,
+			free_focus: None,
+		}
 	}
 
 	pub fn handled() -> Reply {
-		Reply { handled: true }
+		Reply {
+			handled: true,
+			take_focus: None,
+			free_focus: None,
+		}
+	}
+
+	pub fn take_focus(mut self, change: WidgetFocusChange) -> Self {
+		self.take_focus = Some(change);
+		self
+	}
+
+	pub fn free_focus(mut self, change: WidgetFocusChange) -> Self {
+		self.free_focus = Some(change);
+		self
 	}
 }
 
 pub enum WidgetEvent {
-	OnMouseInput,
-	OnMouseEnter,
-	OnMouseMove,
-	OnMouseLeave,
+	OnCursorEnter,
+	OnCursorMove,
+	OnCursorLeave,
+	OnMouseButtonDown,
+	OnMouseButtonUp,
+	OnClick,
+
+	OnKeyDown,
+	OnKeyUp,
+	OnText,
+	OnFocus,
+	OnUnfocus,
 }
 
 pub struct WidgetPath {
@@ -124,42 +157,217 @@ pub fn bubble_event(path: &WidgetPath, event: &WidgetEvent) -> Reply {
 
 pub struct EventContext {
 	cursors: HashMap<usize, CursorEventContext>,
+	keyboards: HashMap<usize, KeyboardEventContext>,
 }
 
 pub struct CursorEventContext {
 	last_over_widgets: HashSet<WidgetRef<dyn Widget>>,
 	captured_by_widget: Option<WidgetRef<dyn Widget>>,
+	about_to_be_clicked: HashMap<usize, HashSet<WidgetRef<dyn Widget>>>,
+}
+
+pub struct KeyboardEventContext {
+	focused_widget: Option<WidgetRef<dyn Widget>>,
+}
+
+impl KeyboardEventContext {
+	pub fn change_focus(&mut self, widget: Option<WidgetRef<dyn Widget>>) {
+		if let Some(already_focused) = &self.focused_widget {
+			let unfocus_event = WidgetEvent::OnUnfocus;
+			already_focused.get().on_event(&unfocus_event);
+		}
+		if let Some(widget) = &widget {
+			let focus_event = WidgetEvent::OnFocus;
+			widget.get().on_event(&focus_event);
+		}
+		self.focused_widget = widget;
+	}
 }
 
 impl EventContext {
 	pub fn new() -> Self {
 		EventContext {
 			cursors: HashMap::new(),
+			keyboards: HashMap::new(),
+		}
+	}
+
+	pub fn get_cursor_context(&mut self, cursor_index: usize) -> &mut CursorEventContext {
+		self.cursors.entry(cursor_index).or_insert(CursorEventContext{
+			last_over_widgets: HashSet::default(),
+			captured_by_widget: None,
+			about_to_be_clicked: HashMap::default(),
+		})
+	}
+
+	pub fn get_keyboard_context(&mut self, keyboard_index: usize) -> &mut KeyboardEventContext {
+		self.keyboards.entry(keyboard_index).or_insert(KeyboardEventContext{
+			focused_widget: None,
+		})
+	}
+
+	pub fn try_get_keyboard_context(&mut self, keyboard_index: usize) -> Option<&mut KeyboardEventContext> {
+		self.keyboards.get_mut(&keyboard_index)
+	}
+
+	pub fn change_focus(&mut self, keyboard: usize, widget: Option<WidgetRef<dyn Widget>>) {
+		let keyboard = self.get_keyboard_context(keyboard);
+		keyboard.change_focus(widget);
+	}
+
+	pub fn process_reply(&mut self, widget: &WidgetRef<dyn Widget>, reply: &Reply) {
+		if reply.handled {
+			if let Some(change) = &reply.take_focus {
+				match change {
+					WidgetFocusChange::KeyboardList(list) => {
+						for keyboard in list {
+							self.change_focus(*keyboard, Some(widget.clone()));
+						}
+					}
+					WidgetFocusChange::AllKeyboards => {
+						// TODO: User list of available keyboards, instead of currently registered ones
+						for (_, ctx) in self.keyboards.iter_mut() {
+							ctx.change_focus(Some(widget.clone()));
+						}
+					}
+				}
+			} else if let Some(change) = &reply.free_focus {
+				let unfocus_event = WidgetEvent::OnUnfocus;
+				match change {
+					WidgetFocusChange::KeyboardList(list) => {
+						for keyboard in list {
+							let ctx = self.get_keyboard_context(*keyboard);
+							let has_focused = ctx.focused_widget.as_ref() == Some(widget);
+							if has_focused {
+								ctx.focused_widget.as_ref().unwrap().get().on_event(&unfocus_event);
+								ctx.focused_widget = None;
+							}
+						}
+					}
+					WidgetFocusChange::AllKeyboards => {
+						let unfocus_event = WidgetEvent::OnUnfocus;
+
+						for (_, ctx) in self.keyboards.iter_mut() {
+							let has_focused = ctx.focused_widget.as_ref() == Some(widget);
+							if has_focused {
+								ctx.focused_widget.as_ref().unwrap().get().on_event(&unfocus_event);
+								ctx.focused_widget = None;
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
 	pub fn handle_mouse_move(&mut self, widget_path: &WidgetPath, cursor_index: usize, pos: &Vector2<scalar>) {
-		let cursor_ctx = self.cursors.entry(cursor_index).or_insert(CursorEventContext{
-			last_over_widgets: Default::default(),
-			captured_by_widget: None,
-		});
+		let cursor_ctx = self.get_cursor_context(cursor_index);
 
-		let mut over_widgets: HashSet<WidgetRef<dyn Widget>> = Default::default();
+		let enter_event = WidgetEvent::OnCursorEnter;
+		let move_event = WidgetEvent::OnCursorMove;
+		let leave_event = WidgetEvent::OnCursorLeave;
+
+		let mut over_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
 		for widget in widget_path.bubble() {
 			over_widgets.insert(widget.clone());
 			if !cursor_ctx.last_over_widgets.remove(widget) {
-				let event = WidgetEvent::OnMouseEnter;
-				widget.get().on_event(&event);
+				widget.get().on_event(&enter_event);
 			}
-			let event = WidgetEvent::OnMouseMove;
-			widget.get().on_event(&event);
+			widget.get().on_event(&move_event);
 		}
 
 		for widget in &cursor_ctx.last_over_widgets {
-			let event = WidgetEvent::OnMouseLeave;
-			widget.get().on_event(&event);
+			widget.get().on_event(&leave_event);
 		}
 		cursor_ctx.last_over_widgets = over_widgets;
+	}
+
+	pub fn handle_mouse_button_down(&mut self, widget_path: &WidgetPath, cursor_index: usize, pos: &Vector2<scalar>) {
+		let cursor_ctx = self.get_cursor_context(cursor_index);
+
+		let down_event = WidgetEvent::OnMouseButtonDown;
+
+		let mut down_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
+		for widget in widget_path.bubble() {
+			down_widgets.insert(widget.clone());
+			let down_reply = widget.get().on_event(&down_event);
+			if down_reply.handled {
+				break
+			}
+		}
+		if down_widgets.len() > 0 {
+			*cursor_ctx.about_to_be_clicked.entry(0).or_default() = down_widgets;
+		}
+	}
+
+	pub fn handle_mouse_button_up(&mut self, widget_path: &WidgetPath, cursor_index: usize, pos: &Vector2<scalar>) {
+
+		let up_event = WidgetEvent::OnMouseButtonUp;
+		let click_event = WidgetEvent::OnClick;
+
+		let mut handled_click = None;
+		let mut up_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
+		for widget in widget_path.bubble() {
+			up_widgets.insert(widget.clone());
+			let up_reply = widget.get().on_event(&up_event);
+
+			let cursor_ctx = self.get_cursor_context(cursor_index);
+			let about_to_be_clicked = cursor_ctx.about_to_be_clicked.get(&0);
+			let reply = about_to_be_clicked.and_then(|about_to| {
+				if handled_click.is_none() || about_to.contains(widget) {
+					Some(widget.get().on_event(&click_event))
+				} else {
+					None
+				}
+			});
+			if let Some(click_reply) = reply {
+				handled_click = Some(widget.clone());
+				self.process_reply(widget, &click_reply);
+			}
+
+			if up_reply.handled {
+				break
+			}
+		}
+		let cursor_ctx = self.get_cursor_context(cursor_index);
+		cursor_ctx.about_to_be_clicked.remove(&0);
+
+		let keyboard_ctx = self.try_get_keyboard_context(0);
+		if let Some(keyboard_ctx) = keyboard_ctx {
+			if handled_click.is_none() || handled_click != keyboard_ctx.focused_widget {
+				keyboard_ctx.change_focus(None)
+			}
+		}
+	}
+
+	pub fn handle_key_down(&mut self, keyboard_index: usize) {
+		let keyboard_ctx = self.try_get_keyboard_context(keyboard_index);
+		if let Some(keyboard_ctx) = keyboard_ctx {
+			if let Some(focused_widget) = &keyboard_ctx.focused_widget {
+				let key_down_event = WidgetEvent::OnKeyDown;
+				focused_widget.get().on_event(&key_down_event);
+			}
+		}
+	}
+
+	pub fn handle_key_up(&mut self, keyboard_index: usize) {
+		let keyboard_ctx = self.try_get_keyboard_context(keyboard_index);
+		if let Some(keyboard_ctx) = keyboard_ctx {
+			if let Some(focused_widget) = &keyboard_ctx.focused_widget {
+				let key_up_event = WidgetEvent::OnKeyUp;
+				focused_widget.get().on_event(&key_up_event);
+			}
+		}
+	}
+
+	pub fn handle_text(&mut self, keyboard_index: usize) {
+		let keyboard_ctx = self.try_get_keyboard_context(keyboard_index);
+		if let Some(keyboard_ctx) = keyboard_ctx {
+			if let Some(focused_widget) = &keyboard_ctx.focused_widget {
+				let text_event = WidgetEvent::OnText;
+				focused_widget.get().on_event(&text_event);
+			}
+		}
 	}
 }
 

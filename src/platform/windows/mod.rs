@@ -8,7 +8,7 @@ use skia_safe::scalar;
 use windows::Win32::Graphics::Gdi::{
 	BeginPaint, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, PAINTSTRUCT, RGBQUAD, SRCCOPY,
 };
-use winit::event::{Event, WindowEvent};
+use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::Window;
@@ -195,7 +195,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 						WindowEvent::MouseInput {
 							device_id: _,
 							button,
-							state: _,
+							state,
 							modifiers: _,
 						},
 					window_id,
@@ -209,11 +209,29 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 							Vector2::new(1.0, 1.0),
 						);
 
+						// TODO: Add multi device support
 						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
-						let event = WidgetEvent::OnMouseInput;
-						let reply = events::bubble_event(&path, &event);
+						match state {
+							ElementState::Pressed => self.event_context.handle_mouse_button_down(&path, 0, &self.last_cursor_pos),
+							ElementState::Released => self.event_context.handle_mouse_button_up(&path, 0, &self.last_cursor_pos),
+						}
+
 
 						window.request_redraw();
+					}
+				},
+				Event::WindowEvent {
+					window_id,
+					event: WindowEvent::KeyboardInput {
+						device_id,
+						input,
+						is_synthetic
+					}
+				} if window_id == window.id() => {
+					match input.state {
+						// TODO: Add multi device support
+						ElementState::Pressed => self.event_context.handle_key_down(0),
+						ElementState::Released => self.event_context.handle_key_up(0),
 					}
 				}
 				Event::RedrawEventsCleared => {

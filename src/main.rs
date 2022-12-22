@@ -58,8 +58,8 @@ fn main() {
 				.build(), Growth::Fill)
 		.slot(
 			OverlayPanel::new()
-				.slot(BoxPanel::new(test21).build())
-				.slot(BoxPanel::new(test2).build())
+				.slot(BoxPanel::new(test21).override_size(Vector2::new(200.0, 200.0)).build())
+				.slot(BoxPanel::new(test2).override_size(Vector2::new(100.0, 100.0)).build())
 				.build(), Growth::Fit)
 		.slot(panel, Growth::Fill)
 		.build();

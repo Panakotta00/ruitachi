@@ -4,7 +4,7 @@ use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetState};
 use rand::Rng;
 use skia_safe::{Paint, Rect, scalar};
-use crate::events::{Reply, WidgetEvent};
+use crate::events::{Reply, WidgetEvent, WidgetFocusChange};
 
 pub struct TestWidget {
 	widget: WidgetState,
@@ -46,7 +46,7 @@ impl TestWidget {
 	pub fn random_color(&mut self) {
 		self.paint.set_color(unsafe {
 			let val = TEST_WIDGET_RAND.as_mut().unwrap().gen::<f32>() * 360.0;
-			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(255)
+			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(self.paint.alpha())
 		});
 	}
 }
@@ -92,22 +92,40 @@ impl Widget for TestWidget {
 
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		match event {
-			WidgetEvent::OnMouseEnter => {
+			WidgetEvent::OnCursorEnter => {
 				println!("Mouse Enter for {}", self.name);
 				self.paint.set_alpha(150);
 			}
-			WidgetEvent::OnMouseMove => {
+			WidgetEvent::OnCursorMove => {
 				//println!("Mouse Move for {} {}!!!", self.name, self.counter);
 				//self.counter += 1;
 			}
-			WidgetEvent::OnMouseLeave => {
+			WidgetEvent::OnCursorLeave => {
 				println!("Mouse Leave for {}", self.name);
 				self.paint.set_alpha(255);
 			}
-			WidgetEvent::OnMouseInput => {
+			WidgetEvent::OnClick => {
 				println!("Mouse Click for {} {}!!!", self.name, self.counter);
 				self.counter += 1;
 				self.random_color();
+				return Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![0]));
+			}
+			WidgetEvent::OnMouseButtonDown => {}
+			WidgetEvent::OnMouseButtonUp => {}
+			WidgetEvent::OnKeyDown => {
+				println!("Key '{}' down for {}!", "", self.name);
+			}
+			WidgetEvent::OnKeyUp => {
+				println!("Key '{}' up for {}!", "", self.name);
+			}
+			WidgetEvent::OnText => {
+				println!("Text '{}' for {}!", "", self.name);
+			}
+			WidgetEvent::OnFocus => {
+				println!("Focused {}!", self.name);
+			}
+			WidgetEvent::OnUnfocus => {
+				println!("Unfocused {}!", self.name);
 			}
 		}
 		Reply::handled()
