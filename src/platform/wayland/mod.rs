@@ -193,7 +193,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 
 					let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &pos);
 					let event = WidgetEvent::OnMouseMove;
-					let reply = events::bubble_event(path, &event);
+					let reply = events::bubble_event(&path, &event);
 
 					window.request_redraw();
 				}
@@ -218,7 +218,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 
 						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
 						let event = WidgetEvent::OnMouseInput;
-						let reply = events::bubble_event(path, &event);
+						let reply = events::bubble_event(&path, &event);
 
 						window.request_redraw();
 					}
