@@ -16,7 +16,7 @@ use ruitachi::*;
 
 use ruitachi::platform::common::PlatformContext;
 use ruitachi::util::WidgetRef;
-use ruitachi::widgets::{BoxPanel, Growth, HorizontalAlignment, LinearPanelDirection, LinearPanel, OverlayPanel, TestWidget, VerticalAlignment, WindowWidget};
+use ruitachi::widgets::{BoxPanel, Growth, HorizontalAlignment, LinearPanelDirection, LinearPanel, OverlayPanel, TestWidget, VerticalAlignment, WindowWidget, TextEditWidget, Widget};
 
 fn main() {
 	let mut event_loop = EventLoop::new();
@@ -51,11 +51,17 @@ fn main() {
 
 	let panel = LinearPanel::new(LinearPanelDirection::Horizontal)
 		.slot(
-			BoxPanel::new(test1)
-				.v_align(VerticalAlignment::Center)
-				.h_align(HorizontalAlignment::Center)
-				.override_y(20.0)
-				.build(), Growth::Fill)
+			OverlayPanel::new()
+				.slot(BoxPanel::new(test1)
+					.v_align(VerticalAlignment::Center)
+					.h_align(HorizontalAlignment::Center)
+					.override_y(20.0)
+				.build())
+				.slot(BoxPanel::new(TextEditWidget::new().build())
+					.v_align(VerticalAlignment::Center)
+					.h_align(HorizontalAlignment::Fill)
+					.build())
+			.build(), Growth::Fill)
 		.slot(
 			OverlayPanel::new()
 				.slot(BoxPanel::new(test21).override_size(Vector2::new(200.0, 200.0)).build())
@@ -63,6 +69,10 @@ fn main() {
 				.build(), Growth::Fit)
 		.slot(panel, Growth::Fill)
 		.build();
+
+	let meep: WidgetRef<dyn Widget> = panel.clone();
+	let meow: WidgetRef<dyn Widget> = meep.clone();
+	println!("{}", &meep != &meow);
 
 	let mut window_widget = WindowWidget::new(Some(panel)).build();
 

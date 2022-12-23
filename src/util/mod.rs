@@ -6,9 +6,11 @@ use cgmath::Vector2;
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::{RefCell, RefMut};
 use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::marker::Unsize;
 use std::ops::{CoerceUnsized, Deref, DerefMut};
+use std::os::raw::c_void;
 use std::rc::Rc;
 
 pub struct WidgetRef<T: ?Sized>(Rc<RefCell<T>>);
@@ -33,9 +35,9 @@ where
 	U: ?Sized,
 {}
 
-impl<T: ?Sized> PartialEq<Self> for WidgetRef<T> {
-	fn eq(&self, other: &Self) -> bool {
-		Rc::ptr_eq(&self.0, &other.0)
+impl<T: ?Sized, U: ?Sized> PartialEq<WidgetRef<U>> for WidgetRef<T> {
+	fn eq(&self, other: &WidgetRef<U>) -> bool {
+		self.0.as_ptr() as *mut u8 == other.0.as_ptr() as *mut u8
 	}
 }
 
@@ -44,6 +46,12 @@ impl<T: ?Sized> Eq for WidgetRef<T> {}
 impl<T: ?Sized> Hash for WidgetRef<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		state.write_usize(self.0.as_ptr() as *const () as usize);
+	}
+}
+
+impl<T: ?Sized> Debug for WidgetRef<T> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", self.0.as_ptr())
 	}
 }
 

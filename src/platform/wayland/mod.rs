@@ -18,6 +18,7 @@ use skia_safe::scalar;
 
 use wayland_client::protocol::wl_shm;
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
+use winit::event::{ElementState, MouseButton};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use crate::events::{EventContext, WidgetEvent};
 use crate::util::Geometry;
@@ -77,6 +78,15 @@ impl Context {
 			.expect("meep");
 
 		self.size = (width, height);
+	}
+}
+
+pub fn conv_mouse_button(btn: winit::event::MouseButton) -> events::input::MouseButton {
+	match btn {
+		MouseButton::Left => events::input::MouseButton::Left,
+		MouseButton::Right => events::input::MouseButton::Right,
+		MouseButton::Middle => events::input::MouseButton::Middle,
+		MouseButton::Other(c) => events::input::MouseButton::Other(c),
 	}
 }
 
@@ -204,7 +214,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 						WindowEvent::MouseInput {
 							device_id: _,
 							button,
-							state: _,
+							state,
 							modifiers: _,
 						},
 					window_id,
@@ -219,11 +229,46 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 						);
 
 						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
-						let event = WidgetEvent::OnMouseInput;
-						let reply = events::bubble_event(&path, &event);
+						match state {
+							ElementState::Pressed => self.event_context.handle_mouse_button_down(&path, 0, conv_mouse_button(button), &self.last_cursor_pos),
+							ElementState::Released => self.event_context.handle_mouse_button_up(&path, 0, conv_mouse_button(button), &self.last_cursor_pos),
+						}
 
 						window.request_redraw();
 					}
+				}
+				Event::WindowEvent {
+					window_id,
+					event: WindowEvent::KeyboardInput {
+						device_id,
+						input,
+						is_synthetic
+					}
+				} if window_id == window.id() => {
+					match input.state {
+						// TODO: Add multi device support
+						ElementState::Pressed => self.event_context.handle_key_down(0, input.scancode as usize),
+						ElementState::Released => self.event_context.handle_key_up(0, input.scancode as usize),
+					}
+					window.request_redraw();
+				}
+				Event::WindowEvent {
+					window_id,
+					event: WindowEvent::ReceivedCharacter(char)
+				} if window_id == window.id() => {
+					// TODO: Add multi device support
+					self.event_context.handle_text(0, char);
+					window.request_redraw();
+				}
+				Event::WindowEvent {
+					window_id,
+					event: WindowEvent::CursorLeft {
+						device_id
+					}
+				} if window_id == window.id() => {
+					// TODO: Add multi device support
+					self.event_context.handle_cursor_leave(0);
+					window.request_redraw();
 				}
 				Event::RedrawEventsCleared => {
 					/*self.wayland_event_queue

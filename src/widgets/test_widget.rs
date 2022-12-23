@@ -92,40 +92,40 @@ impl Widget for TestWidget {
 
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		match event {
-			WidgetEvent::OnCursorEnter => {
-				println!("Mouse Enter for {}", self.name);
+			WidgetEvent::OnCursorEnter{ cursor } => {
+				println!("Mouse {} Enter for {}", cursor, self.name);
 				self.paint.set_alpha(150);
 			}
-			WidgetEvent::OnCursorMove => {
+			WidgetEvent::OnCursorMove{..} => {
 				//println!("Mouse Move for {} {}!!!", self.name, self.counter);
 				//self.counter += 1;
 			}
-			WidgetEvent::OnCursorLeave => {
-				println!("Mouse Leave for {}", self.name);
+			WidgetEvent::OnCursorLeave{ cursor } => {
+				println!("Mouse {} Leave for {}", cursor, self.name);
 				self.paint.set_alpha(255);
 			}
-			WidgetEvent::OnClick => {
-				println!("Mouse Click for {} {}!!!", self.name, self.counter);
+			WidgetEvent::OnClick{ mouse, pos, button } => {
+				println!("Mouse {} Click {:?} for {} '{}' at {:?}!!!", mouse, button, self.name, self.counter, pos);
 				self.counter += 1;
 				self.random_color();
 				return Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![0]));
 			}
-			WidgetEvent::OnMouseButtonDown => {}
-			WidgetEvent::OnMouseButtonUp => {}
-			WidgetEvent::OnKeyDown => {
-				println!("Key '{}' down for {}!", "", self.name);
+			WidgetEvent::OnMouseButtonDown{..} => {}
+			WidgetEvent::OnMouseButtonUp{..} => {}
+			WidgetEvent::OnKeyDown{ keyboard, key } => {
+				println!("Key '{}' down for {} from {}!", key, self.name, keyboard);
 			}
-			WidgetEvent::OnKeyUp => {
-				println!("Key '{}' up for {}!", "", self.name);
+			WidgetEvent::OnKeyUp{ keyboard, key } => {
+				println!("Key '{}' up for {} from {}!", key, self.name, keyboard);
 			}
-			WidgetEvent::OnText => {
-				println!("Text '{}' for {}!", "", self.name);
+			WidgetEvent::OnText{ keyboard, character } => {
+				println!("Text '{}' for {} from {}!", character, self.name, keyboard );
 			}
-			WidgetEvent::OnFocus => {
-				println!("Focused {}!", self.name);
+			WidgetEvent::OnFocus{ keyboard } => {
+				println!("Focused {} from {}!", self.name, keyboard);
 			}
-			WidgetEvent::OnUnfocus => {
-				println!("Unfocused {}!", self.name);
+			WidgetEvent::OnUnfocus{ keyboard } => {
+				println!("Unfocused {} from {}!", self.name, keyboard);
 			}
 		}
 		Reply::handled()

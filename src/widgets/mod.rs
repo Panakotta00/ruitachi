@@ -6,6 +6,7 @@ mod box_panel;
 mod linear_panel;
 mod overlay_panel;
 mod test_widget;
+mod text_edit;
 
 pub use widget::*;
 pub use window::*;
@@ -15,3 +16,4 @@ pub use box_panel::*;
 pub use linear_panel::*;
 pub use overlay_panel::*;
 pub use test_widget::*;
+pub use text_edit::*;
