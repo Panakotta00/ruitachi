@@ -18,6 +18,55 @@ use ruitachi::platform::common::PlatformContext;
 use ruitachi::util::WidgetRef;
 use ruitachi::widgets::{BoxPanel, Growth, HorizontalAlignment, LinearPanelDirection, LinearPanel, OverlayPanel, TestWidget, VerticalAlignment, WindowWidget, TextEditWidget, Widget};
 
+fn check_self(this: *const dyn BaseTrait, other: *const dyn BaseTrait, error: &str) {
+	if this as *const dyn BaseTrait == other as *const dyn  BaseTrait {
+		panic!("{}", error);
+	}
+}
+
+trait BaseTrait {
+	fn base(&mut self) -> &mut dyn BaseTrait;
+	fn do_thing(&mut self) {
+		self.base().do_thing()
+	}
+}
+
+struct Base {}
+
+impl BaseTrait for Base {
+	fn base(&mut self) -> &mut dyn BaseTrait {
+		self
+	}
+
+	fn do_thing(&mut self) {
+		println!("Base does thing!")
+	}
+}
+
+struct Child {
+	base: Base
+}
+
+impl BaseTrait for Child {
+	fn base(&mut self) -> &mut dyn BaseTrait {
+		&mut self.base
+	}
+
+	fn do_thing(&mut self) {
+		println!("Child does thing!")
+	}
+}
+
+struct OtherChild {
+	base: Child
+}
+
+impl BaseTrait for OtherChild {
+	fn base(&mut self) -> &mut dyn BaseTrait {
+		&mut self.base
+	}
+}
+
 fn main() {
 	let mut event_loop = EventLoop::new();
 	let mut window = WindowBuilder::new()

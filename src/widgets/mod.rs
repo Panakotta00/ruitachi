@@ -7,6 +7,7 @@ mod linear_panel;
 mod overlay_panel;
 mod test_widget;
 mod text_edit;
+mod text_block;
 
 pub use widget::*;
 pub use window::*;
@@ -17,3 +18,4 @@ pub use linear_panel::*;
 pub use overlay_panel::*;
 pub use test_widget::*;
 pub use text_edit::*;
+pub use text_block::*;
