@@ -10,18 +10,18 @@ use winit::{
 };
 
 use crate::{events, paint};
+use cgmath::Vector2;
+use skia_safe::scalar;
 use std::borrow::BorrowMut;
 use std::io::{Seek, SeekFrom, Write};
 use std::{fs::File, os::unix::prelude::AsRawFd};
-use cgmath::Vector2;
-use skia_safe::scalar;
 
+use crate::events::{EventContext, WidgetEvent};
+use crate::util::Geometry;
 use wayland_client::protocol::wl_shm;
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use winit::event::{ElementState, MouseButton};
 use winit::platform::run_return::EventLoopExtRunReturn;
-use crate::events::{EventContext, WidgetEvent};
-use crate::util::Geometry;
 
 pub struct Context {
 	window_widget: crate::util::WidgetRef<dyn crate::widgets::Window>,
@@ -182,7 +182,6 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					self.wayland_event_queue
 						.sync_roundtrip(&mut (), |_, _, _| {})
 						.unwrap();
-
 				}
 				Event::WindowEvent {
 					event:
@@ -204,8 +203,13 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					);
 
 					// TODO: Add multi device support
-					let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &pos);
-					self.event_context.handle_mouse_move(&path, 0, &self.last_cursor_pos);
+					let path = events::get_widget_path_under_position(
+						geometry,
+						self.window_widget.clone(),
+						&pos,
+					);
+					self.event_context
+						.handle_mouse_move(&path, 0, &self.last_cursor_pos);
 
 					window.request_redraw();
 				}
@@ -228,10 +232,24 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 							Vector2::new(1.0, 1.0),
 						);
 
-						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
+						let path = events::get_widget_path_under_position(
+							geometry,
+							self.window_widget.clone(),
+							&self.last_cursor_pos,
+						);
 						match state {
-							ElementState::Pressed => self.event_context.handle_mouse_button_down(&path, 0, conv_mouse_button(button), &self.last_cursor_pos),
-							ElementState::Released => self.event_context.handle_mouse_button_up(&path, 0, conv_mouse_button(button), &self.last_cursor_pos),
+							ElementState::Pressed => self.event_context.handle_mouse_button_down(
+								&path,
+								0,
+								conv_mouse_button(button),
+								&self.last_cursor_pos,
+							),
+							ElementState::Released => self.event_context.handle_mouse_button_up(
+								&path,
+								0,
+								conv_mouse_button(button),
+								&self.last_cursor_pos,
+							),
 						}
 
 						window.request_redraw();
@@ -239,22 +257,27 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 				}
 				Event::WindowEvent {
 					window_id,
-					event: WindowEvent::KeyboardInput {
-						device_id,
-						input,
-						is_synthetic
-					}
+					event:
+						WindowEvent::KeyboardInput {
+							device_id,
+							input,
+							is_synthetic,
+						},
 				} if window_id == window.id() => {
 					match input.state {
 						// TODO: Add multi device support
-						ElementState::Pressed => self.event_context.handle_key_down(0, input.scancode as usize),
-						ElementState::Released => self.event_context.handle_key_up(0, input.scancode as usize),
+						ElementState::Pressed => self
+							.event_context
+							.handle_key_down(0, input.scancode as usize),
+						ElementState::Released => {
+							self.event_context.handle_key_up(0, input.scancode as usize)
+						}
 					}
 					window.request_redraw();
 				}
 				Event::WindowEvent {
 					window_id,
-					event: WindowEvent::ReceivedCharacter(char)
+					event: WindowEvent::ReceivedCharacter(char),
 				} if window_id == window.id() => {
 					// TODO: Add multi device support
 					self.event_context.handle_text(0, char);
@@ -262,9 +285,7 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 				}
 				Event::WindowEvent {
 					window_id,
-					event: WindowEvent::CursorLeft {
-						device_id
-					}
+					event: WindowEvent::CursorLeft { device_id },
 				} if window_id == window.id() => {
 					// TODO: Add multi device support
 					self.event_context.handle_cursor_leave(0);

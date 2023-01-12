@@ -1,9 +1,9 @@
+use crate::paint::Painter;
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetArrangement, WidgetState};
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Color, Paint, Rect};
-use crate::paint::Painter;
 
 pub trait Window: Widget {
 	fn draw(&mut self, painter: &mut Painter) {

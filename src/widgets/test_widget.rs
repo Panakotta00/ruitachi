@@ -1,10 +1,10 @@
-use cgmath::Vector2;
+use crate::events::{Reply, WidgetEvent, WidgetFocusChange};
 use crate::paint::Painter;
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetState};
+use cgmath::Vector2;
 use rand::Rng;
-use skia_safe::{Paint, Rect, scalar};
-use crate::events::{Reply, WidgetEvent, WidgetFocusChange};
+use skia_safe::{scalar, Paint, Rect};
 
 pub struct TestWidget {
 	widget: WidgetState,
@@ -92,39 +92,45 @@ impl Widget for TestWidget {
 
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		match event {
-			WidgetEvent::OnCursorEnter{ cursor } => {
+			WidgetEvent::OnCursorEnter { cursor } => {
 				println!("Mouse {} Enter for {}", cursor, self.name);
 				self.paint.set_alpha(150);
 			}
-			WidgetEvent::OnCursorMove{..} => {
+			WidgetEvent::OnCursorMove { .. } => {
 				//println!("Mouse Move for {} {}!!!", self.name, self.counter);
 				//self.counter += 1;
 			}
-			WidgetEvent::OnCursorLeave{ cursor } => {
+			WidgetEvent::OnCursorLeave { cursor } => {
 				println!("Mouse {} Leave for {}", cursor, self.name);
 				self.paint.set_alpha(255);
 			}
-			WidgetEvent::OnClick{ mouse, pos, button } => {
-				println!("Mouse {} Click {:?} for {} '{}' at {:?}!!!", mouse, button, self.name, self.counter, pos);
+			WidgetEvent::OnClick { mouse, pos, button } => {
+				println!(
+					"Mouse {} Click {:?} for {} '{}' at {:?}!!!",
+					mouse, button, self.name, self.counter, pos
+				);
 				self.counter += 1;
 				self.random_color();
 				return Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![0]));
 			}
-			WidgetEvent::OnMouseButtonDown{..} => {}
-			WidgetEvent::OnMouseButtonUp{..} => {}
-			WidgetEvent::OnKeyDown{ keyboard, key } => {
+			WidgetEvent::OnMouseButtonDown { .. } => {}
+			WidgetEvent::OnMouseButtonUp { .. } => {}
+			WidgetEvent::OnKeyDown { keyboard, key } => {
 				println!("Key '{}' down for {} from {}!", key, self.name, keyboard);
 			}
-			WidgetEvent::OnKeyUp{ keyboard, key } => {
+			WidgetEvent::OnKeyUp { keyboard, key } => {
 				println!("Key '{}' up for {} from {}!", key, self.name, keyboard);
 			}
-			WidgetEvent::OnText{ keyboard, character } => {
-				println!("Text '{}' for {} from {}!", character, self.name, keyboard );
+			WidgetEvent::OnText {
+				keyboard,
+				character,
+			} => {
+				println!("Text '{}' for {} from {}!", character, self.name, keyboard);
 			}
-			WidgetEvent::OnFocus{ keyboard } => {
+			WidgetEvent::OnFocus { keyboard } => {
 				println!("Focused {} from {}!", self.name, keyboard);
 			}
-			WidgetEvent::OnUnfocus{ keyboard } => {
+			WidgetEvent::OnUnfocus { keyboard } => {
 				println!("Unfocused {} from {}!", self.name, keyboard);
 			}
 		}

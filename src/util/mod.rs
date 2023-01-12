@@ -33,7 +33,8 @@ impl<T, U> CoerceUnsized<WidgetRef<U>> for WidgetRef<T>
 where
 	T: Unsize<U> + ?Sized,
 	U: ?Sized,
-{}
+{
+}
 
 impl<T: ?Sized, U: ?Sized> PartialEq<WidgetRef<U>> for WidgetRef<T> {
 	fn eq(&self, other: &WidgetRef<U>) -> bool {
@@ -135,7 +136,7 @@ impl Geometry {
 	}
 
 	pub fn contains_absolute_pos(&self, pos: &Vector2<scalar>) -> bool {
-		if self.absolute_pos.x > pos.x  || self.absolute_pos.y > pos.y {
+		if self.absolute_pos.x > pos.x || self.absolute_pos.y > pos.y {
 			return false;
 		}
 		let max = self.absolute_pos + self.local_size;

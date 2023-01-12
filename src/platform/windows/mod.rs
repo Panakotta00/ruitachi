@@ -1,10 +1,12 @@
+use crate::events;
+use crate::events::{EventContext, WidgetEvent};
 use crate::util::{Geometry, WidgetRef};
+use cgmath::Vector2;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle, Win32Handle};
+use skia_safe::scalar;
 use std::borrow::BorrowMut;
 use std::cmp::max;
 use std::ffi::c_void;
-use cgmath::Vector2;
-use skia_safe::scalar;
 use windows::Win32::Graphics::Gdi::{
 	BeginPaint, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, PAINTSTRUCT, RGBQUAD, SRCCOPY,
 };
@@ -12,8 +14,6 @@ use winit::event::{ElementState, Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::Window;
-use crate::events;
-use crate::events::{EventContext, WidgetEvent};
 
 pub struct Context {
 	window_widget: WidgetRef<dyn crate::widgets::Window>,
@@ -185,8 +185,13 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 					);
 
 					// TODO: Add multi device support
-					let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &pos);
-					self.event_context.handle_mouse_move(&path, 0, &self.last_cursor_pos);
+					let path = events::get_widget_path_under_position(
+						geometry,
+						self.window_widget.clone(),
+						&pos,
+					);
+					self.event_context
+						.handle_mouse_move(&path, 0, &self.last_cursor_pos);
 
 					window.request_redraw();
 				}
@@ -210,23 +215,35 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 						);
 
 						// TODO: Add multi device support
-						let path = events::get_widget_path_under_position(geometry, self.window_widget.clone(), &self.last_cursor_pos);
+						let path = events::get_widget_path_under_position(
+							geometry,
+							self.window_widget.clone(),
+							&self.last_cursor_pos,
+						);
 						match state {
-							ElementState::Pressed => self.event_context.handle_mouse_button_down(&path, 0, &self.last_cursor_pos),
-							ElementState::Released => self.event_context.handle_mouse_button_up(&path, 0, &self.last_cursor_pos),
+							ElementState::Pressed => self.event_context.handle_mouse_button_down(
+								&path,
+								0,
+								&self.last_cursor_pos,
+							),
+							ElementState::Released => self.event_context.handle_mouse_button_up(
+								&path,
+								0,
+								&self.last_cursor_pos,
+							),
 						}
-
 
 						window.request_redraw();
 					}
-				},
+				}
 				Event::WindowEvent {
 					window_id,
-					event: WindowEvent::KeyboardInput {
-						device_id,
-						input,
-						is_synthetic
-					}
+					event:
+						WindowEvent::KeyboardInput {
+							device_id,
+							input,
+							is_synthetic,
+						},
 				} if window_id == window.id() => {
 					match input.state {
 						// TODO: Add multi device support

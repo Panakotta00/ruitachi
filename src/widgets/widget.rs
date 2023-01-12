@@ -17,7 +17,7 @@ impl WidgetArrangement {
 	}
 }
 
-pub type Children<'a> = Box<dyn Iterator<Item=&'a WidgetRef<dyn Widget>> + 'a>;
+pub type Children<'a> = Box<dyn Iterator<Item = &'a WidgetRef<dyn Widget>> + 'a>;
 
 #[derive(Default)]
 pub struct WidgetState {

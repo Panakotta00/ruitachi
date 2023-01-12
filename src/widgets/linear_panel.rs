@@ -1,14 +1,14 @@
-use std::process::Child;
 use crate::paint::Painter;
 use crate::util::{Geometry, WidgetRef};
+use crate::widgets::layout::Growth;
 use crate::widgets::{Children, PanelWidget, Widget, WidgetArrangement, WidgetState};
 use cgmath::Vector2;
 use skia_safe::scalar;
-use crate::widgets::layout::Growth;
+use std::process::Child;
 
 pub enum LinearPanelDirection {
 	Vertical,
-	Horizontal
+	Horizontal,
 }
 
 pub struct LinearPanelSlot {
@@ -26,7 +26,7 @@ pub struct LinearPanelBuilder(LinearPanel);
 
 impl LinearPanelBuilder {
 	pub fn slot(mut self, widget: WidgetRef<dyn Widget>, growth: Growth) -> Self {
-		self.0.children.push(LinearPanelSlot {widget, growth});
+		self.0.children.push(LinearPanelSlot { widget, growth });
 		self
 	}
 
@@ -111,7 +111,7 @@ impl Widget for LinearPanel {
 				Growth::Val(val) => {
 					value.push(&child.widget);
 					sum_value += val;
-				},
+				}
 			}
 			required_width += self.get_dir_val(&child.widget.get().get_desired_size());
 		}
@@ -135,11 +135,12 @@ impl Widget for LinearPanel {
 			let desired_width = *self.get_dir_val(&child.widget.get().get_desired_size());
 			let mut size = geometry.local_size();
 			let width = if fit.contains(&&child.widget) {
-				desired_width + if sized_fitted {
-					available_width / fit.len() as scalar
-				} else {
-					0.0
-				}
+				desired_width
+					+ if sized_fitted {
+						available_width / fit.len() as scalar
+					} else {
+						0.0
+					}
 			} else if value.contains(&&child.widget) {
 				if let Growth::Val(val) = child.growth {
 					desired_width + available_width * (val / sum_value)
