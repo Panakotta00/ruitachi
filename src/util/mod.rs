@@ -13,6 +13,23 @@ use std::ops::{CoerceUnsized, Deref, DerefMut};
 use std::os::raw::c_void;
 use std::rc::Rc;
 
+/// An easy to use reference counted shared ptr.
+///
+/// Holds an instance of some type.
+/// If cloned, only the pointer gets copied.
+///
+/// ```
+/// # use ruitachi::util::WidgetRef;
+///
+/// struct MyStruct(i32);
+///
+/// let widget1 = WidgetRef::new(MyStruct(42));
+/// let widget1_clone = widget1.clone();
+///
+/// assert_eq!(widget1_clone.get().0, 42);
+/// widget1.get().0 = 69;
+/// assert_eq!(widget1_clone.get().0, 69);
+/// ```
 pub struct WidgetRef<T: ?Sized>(Rc<RefCell<T>>);
 
 type scalar = f32;

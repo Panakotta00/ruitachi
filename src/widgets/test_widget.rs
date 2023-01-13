@@ -5,6 +5,7 @@ use crate::widgets::{Widget, WidgetState};
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Paint, Rect};
+use std::fmt::Debug;
 
 pub struct TestWidget {
 	widget: WidgetState,
@@ -115,11 +116,25 @@ impl Widget for TestWidget {
 			}
 			WidgetEvent::OnMouseButtonDown { .. } => {}
 			WidgetEvent::OnMouseButtonUp { .. } => {}
-			WidgetEvent::OnKeyDown { keyboard, key } => {
-				println!("Key '{}' down for {} from {}!", key, self.name, keyboard);
+			WidgetEvent::OnKeyDown {
+				keyboard,
+				key_physical,
+				key,
+			} => {
+				println!(
+					"Key '{}' down for {} from {}!",
+					key_physical, self.name, keyboard
+				);
 			}
-			WidgetEvent::OnKeyUp { keyboard, key } => {
-				println!("Key '{}' up for {} from {}!", key, self.name, keyboard);
+			WidgetEvent::OnKeyUp {
+				keyboard,
+				key_physical,
+				key,
+			} => {
+				println!(
+					"Key '{}' up for {} from {}!",
+					key_physical, self.name, keyboard
+				);
 			}
 			WidgetEvent::OnText {
 				keyboard,

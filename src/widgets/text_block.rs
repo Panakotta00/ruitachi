@@ -2,7 +2,7 @@ use crate::paint::{Painter, TextStyle};
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetState};
 use cgmath::Vector2;
-use skia_safe::scalar;
+use skia_safe::{scalar, Point};
 
 pub struct TextBlockWidget {
 	widget: WidgetState,
@@ -12,6 +12,9 @@ pub struct TextBlockWidget {
 
 pub struct TextBlockWidgetBuilder(TextBlockWidget);
 
+/// A Widget showing some simple text.
+///
+/// The desired size is the size the text would consume if the text were in one line.
 impl TextBlockWidget {
 	pub fn new() -> TextBlockWidgetBuilder {
 		TextBlockWidgetBuilder(TextBlockWidget {
@@ -42,21 +45,22 @@ impl Widget for TextBlockWidget {
 		&mut self.widget
 	}
 
+	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+		let pos = geometry.absolute_pos();
+		painter.canvas().draw_str(
+			&self.text,
+			Point::new(pos.x, pos.y),
+			&self.text_style.font,
+			&self.text_style.color,
+		);
+		layer
+	}
+
 	fn get_desired_size(&self) -> Vector2<scalar> {
 		let (_, rect) = self
 			.text_style
 			.font
 			.measure_str(&self.text, Some(&self.text_style.color));
 		Vector2::new(rect.height(), rect.width())
-	}
-
-	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		painter.canvas().draw_str(
-			&self.text,
-			geometry.absolute_pos(),
-			&self.text_style.font,
-			&self.text_style.color,
-		);
-		layer
 	}
 }

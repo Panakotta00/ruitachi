@@ -266,11 +266,19 @@ impl<E> crate::platform::common::PlatformContext<E> for Context {
 				} if window_id == window.id() => {
 					match input.state {
 						// TODO: Add multi device support
-						ElementState::Pressed => self
-							.event_context
-							.handle_key_down(0, input.scancode as usize),
+						ElementState::Pressed => {
+							self.event_context.handle_key_down(
+								0,
+								input.scancode as usize,
+								input.virtual_keycode,
+							);
+						}
 						ElementState::Released => {
-							self.event_context.handle_key_up(0, input.scancode as usize)
+							self.event_context.handle_key_up(
+								0,
+								input.scancode as usize,
+								input.virtual_keycode,
+							);
 						}
 					}
 					window.request_redraw();

@@ -9,6 +9,7 @@ pub use events::*;
 use skia_safe::scalar;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
+use winit::event::VirtualKeyCode;
 
 pub enum WidgetFocusChange {
 	KeyboardList(Vec<usize>),
@@ -78,11 +79,13 @@ pub enum WidgetEvent {
 
 	OnKeyDown {
 		keyboard: usize,
-		key: usize,
+		key_physical: usize,
+		key: Option<VirtualKeyCode>,
 	},
 	OnKeyUp {
 		keyboard: usize,
-		key: usize,
+		key_physical: usize,
+		key: Option<VirtualKeyCode>,
 	},
 	OnText {
 		keyboard: usize,
@@ -448,12 +451,18 @@ impl EventContext {
 		}
 	}
 
-	pub fn handle_key_down(&mut self, keyboard_index: usize, key: usize) {
+	pub fn handle_key_down(
+		&mut self,
+		keyboard_index: usize,
+		key_physical: usize,
+		key: Option<VirtualKeyCode>,
+	) {
 		let keyboard_ctx = self.try_get_keyboard_context(keyboard_index);
 		if let Some(keyboard_ctx) = keyboard_ctx {
 			if let Some(focused_widget) = &keyboard_ctx.focused_widget {
 				let key_down_event = WidgetEvent::OnKeyDown {
 					keyboard: keyboard_index,
+					key_physical,
 					key,
 				};
 				focused_widget.get().on_event(&key_down_event);
@@ -461,12 +470,18 @@ impl EventContext {
 		}
 	}
 
-	pub fn handle_key_up(&mut self, keyboard_index: usize, key: usize) {
+	pub fn handle_key_up(
+		&mut self,
+		keyboard_index: usize,
+		key_physical: usize,
+		key: Option<VirtualKeyCode>,
+	) {
 		let keyboard_ctx = self.try_get_keyboard_context(keyboard_index);
 		if let Some(keyboard_ctx) = keyboard_ctx {
 			if let Some(focused_widget) = &keyboard_ctx.focused_widget {
 				let key_up_event = WidgetEvent::OnKeyUp {
 					keyboard: keyboard_index,
+					key_physical,
 					key,
 				};
 				focused_widget.get().on_event(&key_up_event);

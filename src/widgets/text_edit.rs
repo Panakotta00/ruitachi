@@ -4,11 +4,14 @@ use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, WidgetState};
 use cgmath::Vector2;
 use skia_safe::{scalar, Color, Font, Paint, Point, Rect};
+use winit::event::DeviceEvent::Key;
+use winit::event::VirtualKeyCode;
 
 pub struct TextEditWidget {
 	widget: WidgetState,
 	text: String,
 	cursor: usize,
+	cursor_byte: usize,
 	foreground_font: Font,
 	foreground: Paint,
 }
@@ -24,9 +27,20 @@ impl TextEditWidget {
 			widget: WidgetState::default(),
 			text: "".to_string(),
 			cursor: 0,
+			cursor_byte: 0,
 			foreground_font: font,
 			foreground: paint,
 		})
+	}
+
+	pub fn set_cursor(&mut self, cursor: usize) {
+		self.cursor = cursor.clamp(0, self.text.len());
+		self.cursor_byte = self
+			.text
+			.char_indices()
+			.map(|(i, _)| i)
+			.nth(self.cursor)
+			.unwrap_or(self.text.len());
 	}
 }
 
@@ -54,26 +68,32 @@ impl Widget for TextEditWidget {
 		let text_size = self
 			.foreground_font
 			.measure_str(text, Some(&self.foreground));
-		Vector2::new(text_size.1.width(), text_size.1.height())
+		let m = self.foreground_font.metrics();
+		Vector2::new(text_size.1.width(), m.1.bottom - m.1.top)
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
 		let width = if self.text.len() >= self.cursor && self.cursor > 0 {
 			self.foreground_font
-				.measure_str(&self.text[0..self.cursor], Some(&self.foreground))
+				.measure_str(&self.text[0..self.cursor_byte], Some(&self.foreground))
 		} else {
 			(0.0, Rect::default())
 		};
 		let Vector2 { x, y } = geometry.absolute_pos();
+		let center = geometry.local_size() / 2.0 + geometry.absolute_pos();
+		let font_metric = self.foreground_font.metrics();
+		//println!("{} {}", font_metric.1.top, font_metric.1.bottom);
+		let line_height = font_metric.1.bottom - font_metric.1.top;
+		let base_line = center.y - line_height / 2.0 - font_metric.1.top;
 		painter.canvas().draw_str(
 			&self.text,
-			Point::new(x + 10.0, y + geometry.local_size().y / 2.0),
+			Point::new(x, base_line),
 			&self.foreground_font,
 			&self.foreground,
 		);
 		painter.canvas().draw_line(
-			Point::new(x + width.0 + 10.0, y + 0.0),
-			Point::new(x + width.0 + 10.0, y + geometry.local_size().y),
+			Point::new(x + width.0, base_line + font_metric.1.top),
+			Point::new(x + width.0, base_line + font_metric.1.bottom),
 			&self.foreground,
 		);
 		layer + 1
@@ -85,10 +105,41 @@ impl Widget for TextEditWidget {
 				keyboard,
 				character,
 			} => {
-				self.text.insert(self.cursor, *character);
-				self.cursor += character.len_utf8();
+				println!("{:?}", *character as usize);
+				match *character {
+					'\u{8}' => {
+						if self.cursor > 0 {
+							self.set_cursor(self.cursor - 1);
+							self.text.remove(self.cursor_byte);
+						}
+					}
+					'\u{7F}' => {
+						if self.cursor_byte < self.text.len() {
+							self.text.remove(self.cursor_byte);
+						}
+					}
+					_ => {
+						self.text.insert(self.cursor_byte, *character);
+						self.set_cursor(self.cursor + 1);
+					}
+				}
 				Reply::handled()
 			}
+			WidgetEvent::OnKeyDown {
+				keyboard,
+				key_physical,
+				key: Some(key),
+			} => match key {
+				VirtualKeyCode::Left => {
+					self.set_cursor(self.cursor.saturating_sub(1));
+					Reply::handled()
+				}
+				VirtualKeyCode::Right => {
+					self.set_cursor(self.cursor + 1);
+					Reply::handled()
+				}
+				_ => Reply::unhandled(),
+			},
 			WidgetEvent::OnClick { mouse, button, pos } => {
 				Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![*mouse]))
 			}
