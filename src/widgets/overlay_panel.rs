@@ -2,7 +2,8 @@ use crate::paint::Painter;
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Children, PanelWidget, Widget, WidgetArrangement, WidgetState};
 use cgmath::Vector2;
-use skia_safe::scalar;
+use skia_bindings::SkClipOp;
+use skia_safe::{Rect, scalar};
 
 pub struct OverlayPanelSlot {
 	pub widget: WidgetRef<dyn Widget>,
@@ -45,6 +46,11 @@ impl Widget for OverlayPanel {
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+		painter.clip_rect(Rect::new(
+			0.0,
+			0.0,
+			geometry.local_size().x,
+			geometry.local_size().y), Some(SkClipOp::Intersect), None);
 		PanelWidget::paint(self, geometry, layer, painter)
 	}
 

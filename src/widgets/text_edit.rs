@@ -63,7 +63,7 @@ impl Widget for TextEditWidget {
 		let text = if self.text.len() > 0 {
 			self.text.as_str()
 		} else {
-			"#"
+			""
 		};
 		let text_size = self
 			.foreground_font
@@ -79,21 +79,19 @@ impl Widget for TextEditWidget {
 		} else {
 			(0.0, Rect::default())
 		};
-		let Vector2 { x, y } = geometry.absolute_pos();
-		let center = geometry.local_size() / 2.0 + geometry.absolute_pos();
+		let center = geometry.local_size() / 2.0;
 		let font_metric = self.foreground_font.metrics();
-		//println!("{} {}", font_metric.1.top, font_metric.1.bottom);
 		let line_height = font_metric.1.bottom - font_metric.1.top;
 		let base_line = center.y - line_height / 2.0 - font_metric.1.top;
-		painter.canvas().draw_str(
+		painter.draw_str(
 			&self.text,
-			Point::new(x, base_line),
+			Point::new(0.0, base_line),
 			&self.foreground_font,
 			&self.foreground,
 		);
-		painter.canvas().draw_line(
-			Point::new(x + width.0, base_line + font_metric.1.top),
-			Point::new(x + width.0, base_line + font_metric.1.bottom),
+		painter.draw_line(
+			Point::new(width.0, base_line + font_metric.1.top),
+			Point::new(width.0, base_line + font_metric.1.bottom),
 			&self.foreground,
 		);
 		layer + 1

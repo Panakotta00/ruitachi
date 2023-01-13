@@ -78,10 +78,9 @@ impl Widget for TestWidget {
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		let pos = geometry.local_pos();
 		let size = geometry.local_size();
-		painter.canvas().draw_rect(
-			Rect::new(pos.x, pos.y, pos.x + size.x, pos.y + size.y),
+		painter.draw_rect(
+			Rect::new(0.0, 0.0, size.x, size.y),
 			&self.paint,
 		);
 		layer + 1

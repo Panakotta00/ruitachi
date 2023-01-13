@@ -1,1 +1,1 @@
-pub type Painter = skia_safe::Surface;
+pub type Painter = skia_safe::Canvas;

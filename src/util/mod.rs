@@ -140,7 +140,7 @@ impl Geometry {
 		pos: Vector2<scalar>,
 		size: Vector2<scalar>,
 	) -> WidgetArrangement {
-		let local_pos = self.local_pos + pos;
+		let local_pos = pos;
 		WidgetArrangement {
 			widget: child,
 			geometry: Geometry {

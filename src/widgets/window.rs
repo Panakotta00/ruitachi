@@ -6,10 +6,7 @@ use rand::Rng;
 use skia_safe::{scalar, Color, Paint, Rect};
 
 pub trait Window: Widget {
-	fn draw(&mut self, painter: &mut Painter) {
-		let canvas = painter.canvas();
-		canvas.clear(skia_safe::Color::DARK_GRAY);
-
+	fn draw(&mut self, painter: &mut skia_safe::Surface) {
 		let geometry = Geometry::new(
 			Vector2::new(0.0, 0.0),
 			Vector2::new(painter.width() as scalar, painter.height() as scalar),
@@ -17,7 +14,11 @@ pub trait Window: Widget {
 			Vector2::new(1.0, 1.0),
 		);
 
-		self.paint(geometry, 0, painter);
+		let canvas = painter.canvas();
+		canvas.clear(skia_safe::Color::DARK_GRAY);
+		canvas.save();
+		self.paint(geometry, 0, canvas);
+		canvas.restore();
 	}
 }
 

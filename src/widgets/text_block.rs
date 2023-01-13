@@ -46,10 +46,9 @@ impl Widget for TextBlockWidget {
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		let pos = geometry.absolute_pos();
-		painter.canvas().draw_str(
+		painter.draw_str(
 			&self.text,
-			Point::new(pos.x, pos.y),
+			Point::new(0.0, 0.0),
 			&self.text_style.font,
 			&self.text_style.color,
 		);
