@@ -2,6 +2,7 @@ mod events;
 pub mod input;
 
 use crate::events::input::MouseButton;
+use crate::platform::common::PlatformContext;
 use crate::util::{Geometry, WidgetRef};
 use crate::widgets::{Widget, Window};
 use cgmath::Vector2;
@@ -20,6 +21,8 @@ pub struct Reply {
 	handled: bool,
 	take_focus: Option<WidgetFocusChange>,
 	free_focus: Option<WidgetFocusChange>,
+	capture_cursor: Option<usize>,
+	release_cursor: Option<usize>,
 }
 
 impl Reply {
@@ -28,6 +31,8 @@ impl Reply {
 			handled: false,
 			take_focus: None,
 			free_focus: None,
+			capture_cursor: None,
+			release_cursor: None,
 		}
 	}
 
@@ -36,6 +41,8 @@ impl Reply {
 			handled: true,
 			take_focus: None,
 			free_focus: None,
+			capture_cursor: None,
+			release_cursor: None,
 		}
 	}
 
@@ -46,6 +53,16 @@ impl Reply {
 
 	pub fn free_focus(mut self, change: WidgetFocusChange) -> Self {
 		self.free_focus = Some(change);
+		self
+	}
+
+	pub fn capture_cursor(mut self, cursor: usize) -> Self {
+		self.capture_cursor = Some(cursor);
+		self
+	}
+
+	pub fn release_cursor(mut self, cursor: usize) -> Self {
+		self.release_cursor = Some(cursor);
 		self
 	}
 }
@@ -180,7 +197,12 @@ pub fn get_widget_path_under_position(
 		widget: widget.clone(),
 		children: Vec::new(),
 	};
-	for child_arrangement in widget.get().arrange_children(geometry).iter().rev() {
+	for child_arrangement in widget
+		.get()
+		.calculate_arrange_children(geometry)
+		.iter()
+		.rev()
+	{
 		if !child_arrangement.geometry.contains_absolute_pos(pos) {
 			continue;
 		}
@@ -287,7 +309,12 @@ impl EventContext {
 		keyboard.change_focus(widget);
 	}
 
-	pub fn process_reply(&mut self, widget: &WidgetRef<dyn Widget>, reply: &Reply) {
+	pub fn process_reply(
+		&mut self,
+		widget: &WidgetRef<dyn Widget>,
+		reply: &Reply,
+		platform: &mut dyn PlatformContext,
+	) {
 		if reply.handled {
 			if let Some(change) = &reply.take_focus {
 				match change {
@@ -327,6 +354,23 @@ impl EventContext {
 					}
 				}
 			}
+			if let Some(cursor) = reply.capture_cursor {
+				let cursor_ctx = self.get_cursor_context(cursor);
+				let capture = &mut cursor_ctx.captured_by_widget;
+				if capture.is_none() {
+					*capture = Some(widget.clone());
+					platform.set_capture_cursor(cursor, true);
+				}
+			}
+			if let Some(cursor) = reply.release_cursor {
+				let capture = &mut self.get_cursor_context(cursor).captured_by_widget;
+				if let Some(captured_widget) = capture {
+					if captured_widget == widget {
+						*capture = None;
+						platform.set_capture_cursor(cursor, false);
+					}
+				}
+			}
 		}
 	}
 
@@ -349,23 +393,28 @@ impl EventContext {
 			cursor: cursor_index,
 		};
 
-		let mut over_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
-		for widget in widget_path.bubble() {
-			over_widgets.insert(widget.clone());
-			if !cursor_ctx.last_over_widgets.remove(widget) {
-				widget.get().on_event(&enter_event);
+		if let Some(captured_cursor) = &cursor_ctx.captured_by_widget {
+			captured_cursor.get().on_event(&move_event);
+		} else {
+			let mut over_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
+			for widget in widget_path.bubble() {
+				over_widgets.insert(widget.clone());
+				if !cursor_ctx.last_over_widgets.remove(widget) {
+					widget.get().on_event(&enter_event);
+				}
+				widget.get().on_event(&move_event);
 			}
-			widget.get().on_event(&move_event);
-		}
 
-		for widget in &cursor_ctx.last_over_widgets {
-			widget.get().on_event(&leave_event);
+			for widget in &cursor_ctx.last_over_widgets {
+				widget.get().on_event(&leave_event);
+			}
+			cursor_ctx.last_over_widgets = over_widgets;
 		}
-		cursor_ctx.last_over_widgets = over_widgets;
 	}
 
 	pub fn handle_mouse_button_down(
 		&mut self,
+		platform: &mut dyn PlatformContext,
 		widget_path: &WidgetPath,
 		mouse_index: usize,
 		button: MouseButton,
@@ -379,21 +428,29 @@ impl EventContext {
 			pos: *pos,
 		};
 
-		let mut down_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
-		for widget in widget_path.bubble() {
-			down_widgets.insert(widget.clone());
-			let down_reply = widget.get().on_event(&down_event);
-			if down_reply.handled {
-				break;
+		if let Some(captured_cursor) = cursor_ctx.captured_by_widget.clone() {
+			let reply = captured_cursor.get().on_event(&down_event);
+			self.process_reply(&captured_cursor, &reply, platform);
+		} else {
+			let mut down_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
+			for widget in widget_path.bubble() {
+				down_widgets.insert(widget.clone());
+				let down_reply = widget.get().on_event(&down_event);
+				self.process_reply(widget, &down_reply, platform);
+				if down_reply.handled {
+					break;
+				}
 			}
-		}
-		if down_widgets.len() > 0 {
-			*cursor_ctx.about_to_be_clicked.entry(0).or_default() = down_widgets;
+			if down_widgets.len() > 0 {
+				let cursor_ctx = self.get_cursor_context(mouse_index);
+				*cursor_ctx.about_to_be_clicked.entry(0).or_default() = down_widgets;
+			}
 		}
 	}
 
 	pub fn handle_mouse_button_up(
 		&mut self,
+		platform: &mut dyn PlatformContext,
 		widget_path: &WidgetPath,
 		cursor_index: usize,
 		button: MouseButton,
@@ -410,43 +467,48 @@ impl EventContext {
 			pos: *pos,
 		};
 
-		let mut handled_click = None;
-		let mut up_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
-		for widget in widget_path.bubble() {
-			up_widgets.insert(widget.clone());
-			let up_reply = widget.get().on_event(&up_event);
-
-			let cursor_ctx = self.get_cursor_context(cursor_index);
-			let about_to_be_clicked = cursor_ctx.about_to_be_clicked.get(&cursor_index);
-			let reply = about_to_be_clicked.and_then(|about_to| {
-				if handled_click.is_none() || about_to.contains(widget) {
-					Some(widget.get().on_event(&click_event))
-				} else {
-					None
-				}
-			});
-			if let Some(click_reply) = reply {
-				if click_reply.handled {
-					handled_click = Some(widget.clone());
-					self.process_reply(widget, &click_reply);
-				}
-			}
-
-			if up_reply.handled {
-				break;
-			}
-		}
 		let cursor_ctx = self.get_cursor_context(cursor_index);
-		cursor_ctx.about_to_be_clicked.remove(&cursor_index);
+		if let Some(captured_cursor) = cursor_ctx.captured_by_widget.clone() {
+			let reply = captured_cursor.get().on_event(&up_event);
+			self.process_reply(&captured_cursor, &reply, platform);
+		} else {
+			let mut handled_click = None;
+			let mut up_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
+			for widget in widget_path.bubble() {
+				up_widgets.insert(widget.clone());
+				let up_reply = widget.get().on_event(&up_event);
+				let cursor_ctx = self.get_cursor_context(cursor_index);
+				let about_to_be_clicked = cursor_ctx.about_to_be_clicked.get(&cursor_index);
+				let reply = about_to_be_clicked.and_then(|about_to| {
+					if handled_click.is_none() || about_to.contains(widget) {
+						Some(widget.get().on_event(&click_event))
+					} else {
+						None
+					}
+				});
+				if let Some(click_reply) = reply {
+					if click_reply.handled {
+						handled_click = Some(widget.clone());
+						self.process_reply(widget, &click_reply, platform);
+					}
+				}
 
-		let keyboard_ctx = self.try_get_keyboard_context(0);
-		if let Some(keyboard_ctx) = keyboard_ctx {
-			if handled_click.is_none()
-				|| (keyboard_ctx.focused_widget.is_some()
-					&& handled_click.as_ref().unwrap()
-						!= keyboard_ctx.focused_widget.as_ref().unwrap())
-			{
-				keyboard_ctx.change_focus(None)
+				if up_reply.handled {
+					break;
+				}
+			}
+			let cursor_ctx = self.get_cursor_context(cursor_index);
+			cursor_ctx.about_to_be_clicked.remove(&cursor_index);
+
+			let keyboard_ctx = self.try_get_keyboard_context(0);
+			if let Some(keyboard_ctx) = keyboard_ctx {
+				if handled_click.is_none()
+					|| (keyboard_ctx.focused_widget.is_some()
+						&& handled_click.as_ref().unwrap()
+							!= keyboard_ctx.focused_widget.as_ref().unwrap())
+				{
+					keyboard_ctx.change_focus(None)
+				}
 			}
 		}
 	}

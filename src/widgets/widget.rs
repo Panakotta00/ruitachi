@@ -21,8 +21,9 @@ pub type Children<'a> = Box<dyn Iterator<Item = &'a WidgetRef<dyn Widget>> + 'a>
 
 #[derive(Default)]
 pub struct WidgetState {
-	parent: Option<WidgetRef<dyn Widget>>,
-	cached_geometry: Geometry,
+	pub parent: Option<WidgetRef<dyn Widget>>,
+	pub cached_geometry: Geometry,
+	pub arranged_children: Vec<WidgetArrangement>,
 }
 
 pub trait Widget {
@@ -53,7 +54,25 @@ pub trait Widget {
 		Vec::new()
 	}
 
+	fn get_arranged_children(&self) -> &Vec<WidgetArrangement> {
+		&self.widget_state().arranged_children
+	}
+
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		Reply::unhandled()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.widget_state().cached_geometry
+	}
+}
+
+impl dyn Widget {
+	pub fn calculate_arrange_children(&mut self, geometry: Geometry) -> &Vec<WidgetArrangement> {
+		let widgets = self.arrange_children(geometry);
+		let state = self.widget_state_mut();
+		state.cached_geometry = geometry;
+		state.arranged_children = widgets;
+		&state.arranged_children
 	}
 }

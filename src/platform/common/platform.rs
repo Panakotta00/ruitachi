@@ -1,13 +1,10 @@
+use crate::events::EventContext;
 use crate::util::WidgetRef;
-use std::cell::RefCell;
-use std::rc::Rc;
-use winit::event_loop::EventLoop;
+use crate::widgets::Window;
 
-pub trait PlatformContext<E> {
-	fn new(
-		window: &mut winit::window::Window,
-		event_loop: &mut EventLoop<E>,
-		window_widget: WidgetRef<dyn crate::widgets::Window>,
-	) -> Self;
-	fn run(&mut self, window: &mut winit::window::Window, event_loop: &mut EventLoop<E>);
+pub trait PlatformContext {
+	fn add_window(&mut self, window: &WidgetRef<dyn Window>);
+	fn run(&mut self, event_context: &mut EventContext);
+
+	fn set_capture_cursor(&mut self, cursor: usize, should_capture: bool);
 }

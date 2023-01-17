@@ -1,9 +1,9 @@
-use skia_bindings::SkClipOp;
-use skia_safe::canvas::{SaveLayerFlags, SaveLayerRec};
-use skia_safe::{Matrix, Rect, Vector};
 use crate::paint::Painter;
 use crate::util::Geometry;
 use crate::widgets::Widget;
+use skia_bindings::SkClipOp;
+use skia_safe::canvas::{SaveLayerFlags, SaveLayerRec};
+use skia_safe::{Matrix, Rect, Vector};
 
 pub trait PanelWidget: Widget {
 	fn paint(&self, geometry: Geometry, mut layer: i32, painter: &mut Painter) -> i32 {

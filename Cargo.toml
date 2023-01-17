@@ -9,7 +9,7 @@ windows=["dep:windows"]
 wayland=["dep:wayland-client", "dep:wayland-protocols", "dep:tempfile"]
 
 [dependencies]
-winit = "0.26.1"
+winit = "0.27.5"
 skia-safe = "0"
 raw-window-handle = "0.4.2"
 skia-bindings = "0.50.0"

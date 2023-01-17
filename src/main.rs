@@ -11,14 +11,15 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
+use ruitachi::application::{Application, GUIApplication};
 use ruitachi::events::MouseButtonEvent;
 use ruitachi::*;
 
 use ruitachi::platform::common::PlatformContext;
 use ruitachi::util::WidgetRef;
 use ruitachi::widgets::{
-	BoxPanel, Growth, HorizontalAlignment, LinearPanel, LinearPanelDirection, OverlayPanel,
-	TestWidget, TextEditWidget, VerticalAlignment, Widget, WindowWidget,
+	Axis, BoxPanel, Growth, HorizontalAlignment, LinearPanel, LinearPanelDirection, OverlayPanel,
+	ScrollBarWidget, TestWidget, TextEditWidget, VerticalAlignment, Widget, Window, WindowWidget,
 };
 
 fn check_self(this: *const dyn BaseTrait, other: *const dyn BaseTrait, error: &str) {
@@ -72,12 +73,18 @@ impl BaseTrait for OtherChild {
 
 fn main() {
 	let mut event_loop = EventLoop::new();
+
 	let mut window = WindowBuilder::new()
 		.with_title("Hello World")
 		.with_decorations(true)
 		.with_transparent(true)
 		.build(&event_loop)
 		.unwrap();
+
+	let mut app = GUIApplication::new(platform::wayland::Context::new(
+		&mut window,
+		&mut event_loop,
+	));
 
 	let test1 = TestWidget::new().build();
 	let test2 = TestWidget::new().name("Test2").build();
@@ -104,50 +111,55 @@ fn main() {
 		.slot(panel, Growth::Val(1.0))
 		.build();
 
-	let panel = LinearPanel::new(LinearPanelDirection::Horizontal)
+	let panel = LinearPanel::new(LinearPanelDirection::Vertical)
 		.slot(
-			OverlayPanel::new()
+			LinearPanel::new(LinearPanelDirection::Horizontal)
 				.slot(
-					BoxPanel::new(test1)
-						.v_align(VerticalAlignment::Center)
-						.h_align(HorizontalAlignment::Center)
-						.override_y(20.0)
+					OverlayPanel::new()
+						.slot(
+							BoxPanel::new(test1)
+								.v_align(VerticalAlignment::Center)
+								.h_align(HorizontalAlignment::Center)
+								.override_y(20.0)
+								.build(),
+						)
+						.slot(
+							BoxPanel::new(TextEditWidget::new().build())
+								.v_align(VerticalAlignment::Center)
+								.h_align(HorizontalAlignment::Fill)
+								.build(),
+						)
 						.build(),
+					Growth::Fill,
 				)
 				.slot(
-					BoxPanel::new(TextEditWidget::new().build())
-						.v_align(VerticalAlignment::Center)
-						.h_align(HorizontalAlignment::Fill)
+					OverlayPanel::new()
+						.slot(
+							BoxPanel::new(test21)
+								.override_size(Vector2::new(200.0, 200.0))
+								.build(),
+						)
+						.slot(
+							BoxPanel::new(test2)
+								.override_size(Vector2::new(100.0, 100.0))
+								.build(),
+						)
 						.build(),
+					Growth::Fit,
 				)
+				.slot(panel, Growth::Fill)
 				.build(),
 			Growth::Fill,
 		)
 		.slot(
-			OverlayPanel::new()
-				.slot(
-					BoxPanel::new(test21)
-						.override_size(Vector2::new(200.0, 200.0))
-						.build(),
-				)
-				.slot(
-					BoxPanel::new(test2)
-						.override_size(Vector2::new(100.0, 100.0))
-						.build(),
-				)
-				.build(),
+			ScrollBarWidget::new().direction(Axis::Horizontal).build(),
 			Growth::Fit,
 		)
-		.slot(panel, Growth::Fill)
 		.build();
 
-	let meep: WidgetRef<dyn Widget> = panel.clone();
-	let meow: WidgetRef<dyn Widget> = meep.clone();
-	println!("{}", &meep != &meow);
+	let mut window_widget: WidgetRef<dyn Window> = WindowWidget::new(Some(panel)).build();
 
-	let mut window_widget = WindowWidget::new(Some(panel)).build();
+	app.platform_context_mut().add_window(&window_widget);
 
-	let mut platform_context = platform::Context::new(&mut window, &mut event_loop, window_widget);
-
-	platform_context.run(&mut window, &mut event_loop);
+	app.run();
 }
