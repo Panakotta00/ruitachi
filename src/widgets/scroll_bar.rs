@@ -57,6 +57,11 @@ impl ScrollBarWidget {
 	pub fn set_value(&mut self, value: f64) {
 		self.value = value.clamp(0.0, 1.0);
 	}
+
+	pub fn set_range(&mut self, range: Range<f64>) {
+		self.range = range;
+		self.set_value(self.value);
+	}
 }
 
 impl ScrollBarWidgetBuilder {

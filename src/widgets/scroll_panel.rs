@@ -3,106 +3,47 @@ use crate::{
 	util::{Geometry, WidgetRef},
 	widgets::{
 		Axis, Axis::Vertical, PanelWidget, ScrollBarWidget,
-		ScrollPanelScrollBarVisibility::Visible, Widget, WidgetArrangement, WidgetState,
+		Widget, WidgetArrangement, WidgetState,
 	},
 };
 use cgmath::Vector2;
 use skia_bindings::SkClipOp;
-use skia_safe::Rect;
+use skia_safe::{Rect, Vector};
+use crate::util::scalar;
 
-enum ScrollPanelScrollValue {
-	ScrollBar(ScrollPanelScrollBars),
-	Static(Vector2<f64>),
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub enum ScrollPanelDirection {
+	Horizontal,
+	Vertical,
+	Both
 }
 
-pub struct ScrollPanelScrollBars {
-	right_visibility: ScrollPanelScrollBarVisibility,
-	right: Option<WidgetRef<ScrollBarWidget>>,
-	bottom_visibility: ScrollPanelScrollBarVisibility,
-	bottom: Option<WidgetRef<ScrollBarWidget>>,
-	left_visibility: ScrollPanelScrollBarVisibility,
-	left: Option<WidgetRef<ScrollBarWidget>>,
-	top_visibility: ScrollPanelScrollBarVisibility,
-	top: Option<WidgetRef<ScrollBarWidget>>,
-}
-
-pub enum ScrollPanelScrollBarVisibility {
-	Hidden,
-	Visible,
-	VisibleOnOverflow,
-}
-
-impl ScrollPanelScrollBars {
-	pub fn new() -> Self {
-		Self {
-			right_visibility: ScrollPanelScrollBarVisibility::Visible,
-			right: None,
-			bottom_visibility: ScrollPanelScrollBarVisibility::Hidden,
-			bottom: None,
-			left_visibility: ScrollPanelScrollBarVisibility::Hidden,
-			left: None,
-			top_visibility: ScrollPanelScrollBarVisibility::Hidden,
-			top: None,
-		}
-	}
-
-	pub fn right(
-		mut self,
-		scroll_bar: Option<WidgetRef<ScrollBarWidget>>,
-		visibility: ScrollPanelScrollBarVisibility,
-	) -> Self {
-		self.right_visibility = visibility;
-		self.right = scroll_bar;
-		self
-	}
-
-	pub fn bottom(
-		mut self,
-		scroll_bar: Option<WidgetRef<ScrollBarWidget>>,
-		visibility: ScrollPanelScrollBarVisibility,
-	) -> Self {
-		self.bottom_visibility = visibility;
-		self.bottom = scroll_bar;
-		self
-	}
-
-	pub fn left(
-		mut self,
-		scroll_bar: Option<WidgetRef<ScrollBarWidget>>,
-		visibility: ScrollPanelScrollBarVisibility,
-	) -> Self {
-		self.left_visibility = visibility;
-		self.left = scroll_bar;
-		self
-	}
-
-	pub fn top(
-		mut self,
-		scroll_bar: Option<WidgetRef<ScrollBarWidget>>,
-		visibility: ScrollPanelScrollBarVisibility,
-	) -> Self {
-		self.top_visibility = visibility;
-		self.top = scroll_bar;
-		self
-	}
+struct ScrollPanelCache {
+	arranged_content: Option<WidgetArrangement>,
+	arranged_decorations: Vec<WidgetArrangement>,
 }
 
 pub struct ScrollPanel {
 	widget: WidgetState,
-	lock_to_direction: Option<Axis>,
-	scroll_value: ScrollPanelScrollValue,
+	direction: ScrollPanelDirection,
+	horizontal: Option<WidgetRef<ScrollBarWidget>>,
+	vertical: Option<WidgetRef<ScrollBarWidget>>,
 	content: Option<WidgetRef<dyn Widget>>,
+	cache: WidgetRef<ScrollPanelCache>,
 }
 
 impl ScrollPanel {
 	pub fn new() -> ScrollPanelBuilder {
 		ScrollPanelBuilder(Self {
 			widget: Default::default(),
-			lock_to_direction: Some(Vertical),
-			scroll_value: ScrollPanelScrollValue::ScrollBar(
-				ScrollPanelScrollBars::new().right(None, Visible),
-			),
+			direction: ScrollPanelDirection::Both,
+			horizontal: None,
+			vertical: None,
 			content: None,
+			cache: WidgetRef::new(ScrollPanelCache{
+				arranged_decorations: Default::default(),
+				arranged_content: None,
+			})
 		})
 	}
 }
@@ -114,33 +55,21 @@ impl ScrollPanelBuilder {
 		WidgetRef::new(self.0)
 	}
 
-	/*pub fn lock_to_direction(mut self, direction: Option<Axis>) -> Self {
-		self.0.lock_to_direction = direction;
-	}
-
-	pub fn direction(mut self, direction: Axis) -> Self {
+	pub fn direction(mut self, direction: ScrollPanelDirection) -> Self {
 		self.0.direction = direction;
-		self.0.scroll_value = ScrollBar(match direction {
-			Axis::Vertical => ScrollPanelScrollBars::new().left(None, Visible),
-			Axis::Horizontal => ScrollPanelScrollBars::new().right(None, Visible),
-		});
-		self
-	}
-
-	pub fn scroll_bar(mut self, scroll_bar: WidgetRef<ScrollBarWidget>) -> Self {
-		self.0.scroll_value = ScrollPanelScrollValue::ScrollBar(Some(scroll_bar));
-		self
-	}
-
-	pub fn scroll_static(mut self, value: Vector2<f64>) -> Self {
-		self.0.scroll_value = ScrollPanelScrollValue::Static(value.clamp(0.0, 1.0));
+		if direction == ScrollPanelDirection::Vertical || direction == ScrollPanelDirection::Both {
+			self.0.vertical = Some(ScrollBarWidget::new().direction(Axis::Vertical).build());
+		}
+		if direction == ScrollPanelDirection::Horizontal || direction == ScrollPanelDirection::Both {
+			self.0.horizontal = Some(ScrollBarWidget::new().direction(Axis::Horizontal).build());
+		}
 		self
 	}
 
 	pub fn content(mut self, content: WidgetRef<dyn Widget>) -> Self {
 		self.0.content = Some(content);
 		self
-	}*/
+	}
 }
 
 impl Widget for ScrollPanel {
@@ -152,57 +81,112 @@ impl Widget for ScrollPanel {
 		&mut self.widget
 	}
 
-	fn arrange_children(&self, _geometry: Geometry) -> Vec<WidgetArrangement> {
-		let arranged = Vec::new();
+	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+		let mut arranged = Vec::new();
 
-		/*let value = match &self.scroll_value {
-			ScrollBar(Some(scroll_bar)) => scroll_bar.get().value(),
-			ScrollBar(None) => 0.0,
-			ScrollPanelScrollValue::Static(v) => v,
+		let mut horizontal = false;
+		let mut vertical = false;
+		let desired_size = match &self.content {
+			Some(content) => content.get().get_desired_size(),
+			None => Vector2::new(0.0, 0.0),
 		};
+		let available_size = geometry.local_size();
 
-		let desired_size = if let Some(content) = &self.content {
-			content.get().get_desired_size()
-		} else {
-			Vector2::new(0.0, 0.0)
-		};
+		let mut available_content_size = Vector2::new(match &self.vertical {
+			Some(scroll_bar) => available_size.x - scroll_bar.get().get_desired_size().x,
+			None => available_size.x,
+		}, match &self.horizontal {
+			Some(scroll_bar) => available_size.y - scroll_bar.get().get_desired_size().y,
+			None => available_size.y,
+		});
 
-		let available_size = geometry.local_size()
-			- if let ScrollBar(Some(scroll_bar)) = &self.scroll_value {
-				let v = self
-					.direction
-					.get_vec_axis(scroll_bar.get().get_desired_size())
-					.1;
-				arranged.push(geometry.child_widget(scroll_bar));
-				self.direction.create_vec(0.0, v)
-			} else {
-				Vector2::new(0.0, 0.0)
-			};
+		let overflow_size = desired_size - available_content_size;
+		let overflow_size = Vector2::new(match overflow_size.x {
+			v @ 0.0.. => {
+				horizontal = self.horizontal.is_some();
+				v
+			},
+			_ => 0.0,
+		}, match overflow_size.y {
+			v @ 0.0.. => {
+				vertical = self.vertical.is_some();
+				v
+			},
+			_ => 0.0,
+		});
 
-		let mut hidden_size = self
-			.direction
-			.get_vec_axis(desired_size - available_size)
-			.0
-			.clamp(0.0, f32::MAX);
+		if let Some(content) = &self.content {
+			let pos = Vector2::new(match horizontal {
+				true => self.horizontal.as_ref().unwrap().get().value() as scalar * -overflow_size.x,
+				false => 0.0,
+			}, match vertical {
+				true => self.vertical.as_ref().unwrap().get().value() as scalar * -overflow_size.y,
+				false => 0.0,
+			});
+			let size = content.get().get_desired_size();
+			let size = Vector2::new(match geometry.local_size().x {
+				x if x > size.x => x,
+				_ => size.x,
+			}, match geometry.local_size().y {
+				y if y > size.y => y,
+				_ => size.y,
+			});
+			let child = geometry.child_widget(content.clone(), pos, size);
+			arranged.push(child.clone());
+			self.cache.get().arranged_content = Some(child);
+		}
 
-		if let ScrollBar(Some(scroll_bar)) = &self.scroll_value {
-			arranged.push(geometry.child_widget(
-				scroll_bar.clone(),
-				self.direction.create_vec(-hidden_size * value, 0.0),
-				desired_size,
-			));
-		}*/
+		self.cache.get().arranged_decorations.clear();
+		if vertical {
+			let scroll = self.vertical.as_ref().unwrap();
+			scroll.get().set_range(0.0..overflow_size.y as f64);
+			let pos = Vector2::new(available_content_size.x, 0.0);
+			let size = Vector2::new(scroll.get().get_desired_size().x, available_content_size.y);
+			let child = geometry.child_widget(scroll.clone(), pos, size);
+			arranged.push(child.clone());
+			self.cache.get().arranged_decorations.push(child);
+		}
+		if horizontal {
+			let scroll = self.horizontal.as_ref().unwrap();
+			scroll.get().set_range(0.0..overflow_size.x as f64);
+			let pos = Vector2::new(0.0, available_content_size.y);
+			let size = Vector2::new(available_content_size.x, scroll.get().get_desired_size().y);
+			let child = geometry.child_widget(scroll.clone(), pos, size);
+			arranged.push(child.clone());
+			self.cache.get().arranged_decorations.push(child);
+		}
 
 		arranged
 	}
 
-	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		painter.clip_rect(
-			Rect::new(0.0, 0.0, geometry.local_size().x, geometry.local_size().y),
-			Some(SkClipOp::Intersect),
-			None,
-		);
-		PanelWidget::paint(self, geometry, layer, painter)
+	fn paint(&self, geometry: Geometry, mut layer: i32, painter: &mut Painter) -> i32 {
+		self.arrange_children(geometry);
+		if let Some(content) = &self.cache.get().arranged_content {
+			painter.save();
+			painter.clip_rect(
+				Rect::new(0.0, 0.0, geometry.local_size().x, geometry.local_size().y),
+				Some(SkClipOp::Intersect),
+				None,
+			);
+			painter.translate(Vector::new(
+				content.geometry.local_pos().x,
+				content.geometry.local_pos().y,
+			));
+			content.widget.get().paint(content.geometry, layer, painter);
+			painter.restore();
+			layer += 1;
+		}
+		for child in self.cache.get().arranged_decorations.iter() {
+			painter.save();
+			painter.translate(Vector::new(
+				child.geometry.local_pos().x,
+				child.geometry.local_pos().y,
+			));
+			child.widget.get().paint(child.geometry, layer, painter);
+			painter.restore();
+			layer += 1;
+		}
+		layer
 	}
 }
 

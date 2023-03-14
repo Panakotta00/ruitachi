@@ -7,6 +7,7 @@ use cgmath::Vector2;
 
 use skia_safe::scalar;
 
+#[derive(Clone)]
 pub struct WidgetArrangement {
 	pub widget: WidgetRef<dyn Widget>,
 	pub geometry: Geometry,
@@ -39,7 +40,9 @@ pub trait Widget {
 		self.widget_state_mut().parent = parent;
 	}
 
-	fn paint(&self, _geometry: Geometry, layer: i32, _painter: &mut Painter) -> i32 {
+	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+		geometry;
+		painter;
 		layer
 	}
 
@@ -51,7 +54,7 @@ pub trait Widget {
 		Box::new(std::iter::empty())
 	}
 
-	fn arrange_children(&self, _geometry: Geometry) -> Vec<WidgetArrangement> {
+	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
 		Vec::new()
 	}
 
