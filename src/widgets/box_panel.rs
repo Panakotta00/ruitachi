@@ -1,8 +1,10 @@
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{
-	Children, HorizontalAlignment, PanelWidget, VerticalAlignment, Widget, WidgetArrangement,
-	WidgetState,
+use crate::{
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{
+		Children, HorizontalAlignment, PanelWidget, VerticalAlignment, Widget, WidgetArrangement,
+		WidgetState,
+	},
 };
 use cgmath::Vector2;
 use skia_safe::scalar;

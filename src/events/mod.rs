@@ -1,15 +1,16 @@
 mod events;
 pub mod input;
 
-use crate::events::input::MouseButton;
-use crate::platform::common::PlatformContext;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Widget, Window};
+use crate::{
+	events::input::MouseButton,
+	platform::common::PlatformContext,
+	util::{Geometry, WidgetRef},
+	widgets::Widget,
+};
 use cgmath::Vector2;
 pub use events::*;
 use skia_safe::scalar;
 use std::collections::{HashMap, HashSet};
-use std::rc::{Rc, Weak};
 use winit::event::VirtualKeyCode;
 
 pub enum WidgetFocusChange {
@@ -173,7 +174,7 @@ impl<'a> Iterator for WidgetPathIteratorBubble<'a> {
 
 		// got back to prev, no need to go to next child, as next call would do that,
 		// as well as passing the widget it self
-		if let Some(idx) = self.iter.path_child_index {
+		if let Some(_idx) = self.iter.path_child_index {
 			if self.iter.prev_iterator.is_none() {
 				// no prev iterator, means, end of iterator, tell iterator to end by setting path to None
 				self.iter.path = None
@@ -337,7 +338,7 @@ impl EventContext {
 							let ctx = self.get_keyboard_context(*keyboard);
 							let has_focused = ctx.focused_widget.as_ref() == Some(widget);
 							if has_focused {
-								let unfocus_event = WidgetEvent::OnUnfocus {
+								let _unfocus_event = WidgetEvent::OnUnfocus {
 									keyboard: *keyboard,
 								};
 								ctx.change_focus(None);

@@ -1,10 +1,11 @@
-use crate::events::{MouseButtonEvent, PointerEvent, Reply, WidgetEvent};
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
+use crate::{
+	events::{Reply, WidgetEvent},
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+};
 use cgmath::Vector2;
-use rand::Rng;
-use skia_safe::{scalar, Color, Color4f, Paint, PixelGeometry, Rect};
-use std::cmp::max;
+
+use skia_safe::scalar;
 
 pub struct WidgetArrangement {
 	pub widget: WidgetRef<dyn Widget>,
@@ -38,7 +39,7 @@ pub trait Widget {
 		self.widget_state_mut().parent = parent;
 	}
 
-	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+	fn paint(&self, _geometry: Geometry, layer: i32, _painter: &mut Painter) -> i32 {
 		layer
 	}
 
@@ -50,7 +51,7 @@ pub trait Widget {
 		Box::new(std::iter::empty())
 	}
 
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+	fn arrange_children(&self, _geometry: Geometry) -> Vec<WidgetArrangement> {
 		Vec::new()
 	}
 
@@ -58,7 +59,7 @@ pub trait Widget {
 		&self.widget_state().arranged_children
 	}
 
-	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+	fn on_event(&mut self, _event: &WidgetEvent) -> Reply {
 		Reply::unhandled()
 	}
 

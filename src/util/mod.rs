@@ -3,15 +3,15 @@
 
 use crate::widgets::{Widget, WidgetArrangement};
 use cgmath::Vector2;
-use std::borrow::{Borrow, BorrowMut};
-use std::cell::{RefCell, RefMut};
-use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
-use std::hash::{Hash, Hasher};
-use std::marker::Unsize;
-use std::ops::{CoerceUnsized, Deref, DerefMut};
-use std::os::raw::c_void;
-use std::rc::Rc;
+use std::{
+	borrow::BorrowMut,
+	cell::{RefCell, RefMut},
+	fmt::{Debug, Formatter},
+	hash::{Hash, Hasher},
+	marker::Unsize,
+	ops::{CoerceUnsized, Deref},
+	rc::Rc,
+};
 
 pub type scalar = f32;
 

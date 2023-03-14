@@ -1,14 +1,15 @@
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::scroll_panel::ScrollPanelScrollValue::ScrollBar;
-use crate::widgets::Axis::Vertical;
-use crate::widgets::ScrollPanelScrollBarVisibility::Visible;
-use crate::widgets::{Axis, PanelWidget, ScrollBarWidget, Widget, WidgetArrangement, WidgetState};
-use cgmath::{Vector2, VectorSpace};
+use crate::{
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{
+		Axis, Axis::Vertical, PanelWidget, ScrollBarWidget,
+		ScrollPanelScrollBarVisibility::Visible, Widget, WidgetArrangement, WidgetState,
+	},
+};
+use cgmath::Vector2;
 use skia_bindings::SkClipOp;
 use skia_safe::Rect;
 
-#[derive(PartialEq)]
 enum ScrollPanelScrollValue {
 	ScrollBar(ScrollPanelScrollBars),
 	Static(Vector2<f64>),
@@ -109,11 +110,11 @@ impl ScrollPanel {
 pub struct ScrollPanelBuilder(ScrollPanel);
 
 impl ScrollPanelBuilder {
-	pub fn build(mut self) -> WidgetRef<ScrollPanel> {
+	pub fn build(self) -> WidgetRef<ScrollPanel> {
 		WidgetRef::new(self.0)
 	}
 
-	pub fn lock_to_direction(mut self, direction: Option<Axis>) -> Self {
+	/*pub fn lock_to_direction(mut self, direction: Option<Axis>) -> Self {
 		self.0.lock_to_direction = direction;
 	}
 
@@ -139,7 +140,7 @@ impl ScrollPanelBuilder {
 	pub fn content(mut self, content: WidgetRef<dyn Widget>) -> Self {
 		self.0.content = Some(content);
 		self
-	}
+	}*/
 }
 
 impl Widget for ScrollPanel {
@@ -151,10 +152,10 @@ impl Widget for ScrollPanel {
 		&mut self.widget
 	}
 
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
-		let mut arranged = Vec::new();
+	fn arrange_children(&self, _geometry: Geometry) -> Vec<WidgetArrangement> {
+		let arranged = Vec::new();
 
-		let value = match &self.scroll_value {
+		/*let value = match &self.scroll_value {
 			ScrollBar(Some(scroll_bar)) => scroll_bar.get().value(),
 			ScrollBar(None) => 0.0,
 			ScrollPanelScrollValue::Static(v) => v,
@@ -190,7 +191,7 @@ impl Widget for ScrollPanel {
 				self.direction.create_vec(-hidden_size * value, 0.0),
 				desired_size,
 			));
-		}
+		}*/
 
 		arranged
 	}
@@ -201,7 +202,7 @@ impl Widget for ScrollPanel {
 			Some(SkClipOp::Intersect),
 			None,
 		);
-		PanelWidget::paint(geometry, layer, painter)
+		PanelWidget::paint(self, geometry, layer, painter)
 	}
 }
 

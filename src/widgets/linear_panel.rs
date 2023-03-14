@@ -1,10 +1,10 @@
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::layout::Growth;
-use crate::widgets::{Children, PanelWidget, Widget, WidgetArrangement, WidgetState};
+use crate::{
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{layout::Growth, Children, PanelWidget, Widget, WidgetArrangement, WidgetState},
+};
 use cgmath::Vector2;
 use skia_safe::scalar;
-use std::process::Child;
 
 pub enum LinearPanelDirection {
 	Vertical,
@@ -98,13 +98,13 @@ impl Widget for LinearPanel {
 
 	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
 		let mut list = Vec::new();
-		let width_step = self.get_dir_val(&geometry.local_size()) / self.children.len() as scalar;
+		let _width_step = self.get_dir_val(&geometry.local_size()) / self.children.len() as scalar;
 		let mut fit = Vec::new();
 		let mut value = Vec::new();
 		let mut fill = Vec::new();
 		let mut required_width = 0.0;
 		let mut sum_value = 0.0;
-		for (i, child) in self.children.iter().enumerate() {
+		for (_i, child) in self.children.iter().enumerate() {
 			match child.growth {
 				Growth::Fill => fill.push(&child.widget),
 				Growth::Fit => fit.push(&child.widget),
@@ -131,7 +131,7 @@ impl Widget for LinearPanel {
 		let sized_fitted = value.len() + fill.len() <= 0;
 
 		let mut last_offset = 0.0;
-		for (i, child) in self.children.iter().enumerate() {
+		for (_i, child) in self.children.iter().enumerate() {
 			let desired_width = *self.get_dir_val(&child.widget.get().get_desired_size());
 			let mut size = geometry.local_size();
 			let width = if fit.contains(&&child.widget) {

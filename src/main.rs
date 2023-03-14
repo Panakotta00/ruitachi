@@ -5,21 +5,17 @@
 extern crate core;
 
 use cgmath::Vector2;
-use skia_safe::colors;
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::rc::Rc;
-use winit::{event_loop::EventLoop, window::WindowBuilder};
 
 use ruitachi::application::{Application, GUIApplication};
-use ruitachi::events::MouseButtonEvent;
-use ruitachi::*;
 
-use ruitachi::platform::common::PlatformContext;
-use ruitachi::util::WidgetRef;
-use ruitachi::widgets::{
-	Axis, BoxPanel, Growth, HorizontalAlignment, LinearPanel, LinearPanelDirection, OverlayPanel,
-	ScrollBarWidget, TestWidget, TextEditWidget, VerticalAlignment, Widget, Window, WindowWidget,
+use ruitachi::{
+	platform::common::PlatformContext,
+	util::WidgetRef,
+	widgets::{
+		Axis, BoxPanel, Growth, HorizontalAlignment, LinearPanel, LinearPanelDirection,
+		OverlayPanel, ScrollBarWidget, TestWidget, TextEditWidget, VerticalAlignment, Window,
+		WindowWidget,
+	},
 };
 
 fn check_self(this: *const dyn BaseTrait, other: *const dyn BaseTrait, error: &str) {
@@ -145,9 +141,10 @@ fn main() {
 		)
 		.build();
 
-	let mut window_widget1: WidgetRef<dyn Window> = WindowWidget::new(Some(panel)).build();
+	let window_widget1: WidgetRef<dyn Window> = WindowWidget::new(Some(panel)).build();
 
-	let mut window_widget2: WidgetRef<dyn Window> = WindowWidget::new(Some(TestWidget::new().build())).build();
+	let window_widget2: WidgetRef<dyn Window> =
+		WindowWidget::new(Some(TestWidget::new().build())).build();
 
 	app.platform_context_mut().add_window(&window_widget1);
 	app.platform_context_mut().add_window(&window_widget2);

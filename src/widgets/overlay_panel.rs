@@ -1,9 +1,11 @@
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Children, PanelWidget, Widget, WidgetArrangement, WidgetState};
+use crate::{
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{Children, PanelWidget, Widget, WidgetArrangement, WidgetState},
+};
 use cgmath::Vector2;
-use skia_bindings::SkClipOp;
-use skia_safe::{scalar, Rect};
+
+use skia_safe::scalar;
 
 pub struct OverlayPanelSlot {
 	pub widget: WidgetRef<dyn Widget>,

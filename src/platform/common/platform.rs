@@ -1,6 +1,4 @@
-use crate::events::EventContext;
-use crate::util::WidgetRef;
-use crate::widgets::Window;
+use crate::{events::EventContext, util::WidgetRef, widgets::Window};
 
 pub trait PlatformContext {
 	fn add_window(&mut self, window: &WidgetRef<dyn Window>);

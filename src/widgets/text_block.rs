@@ -1,6 +1,8 @@
-use crate::paint::{Painter, TextStyle};
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Widget, WidgetState};
+use crate::{
+	paint::{Painter, TextStyle},
+	util::{Geometry, WidgetRef},
+	widgets::{Widget, WidgetState},
+};
 use cgmath::Vector2;
 use skia_safe::{scalar, Point};
 
@@ -31,7 +33,7 @@ impl TextBlockWidgetBuilder {
 		self
 	}
 
-	pub fn build(mut self) -> WidgetRef<TextBlockWidget> {
+	pub fn build(self) -> WidgetRef<TextBlockWidget> {
 		WidgetRef::new(self.0)
 	}
 }
@@ -45,7 +47,7 @@ impl Widget for TextBlockWidget {
 		&mut self.widget
 	}
 
-	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+	fn paint(&self, _geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
 		painter.draw_str(
 			&self.text,
 			Point::new(0.0, 0.0),

@@ -1,7 +1,7 @@
-use crate::events::EventContext;
-use crate::platform::common::PlatformContext;
-use crate::platform::Context;
-use crate::util::WidgetRef;
+use crate::{
+	events::EventContext,
+	platform::{common::PlatformContext, Context},
+};
 
 pub struct GUIApplication {
 	event: EventContext,

@@ -1,10 +1,11 @@
-use crate::events::{Reply, WidgetEvent, WidgetFocusChange};
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Widget, WidgetState};
+use crate::{
+	events::{Reply, WidgetEvent, WidgetFocusChange},
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{Widget, WidgetState},
+};
 use cgmath::Vector2;
 use skia_safe::{scalar, Color, Font, Paint, Point, Rect};
-use winit::event::DeviceEvent::Key;
 use winit::event::VirtualKeyCode;
 
 pub struct TextEditWidget {
@@ -22,7 +23,7 @@ impl TextEditWidget {
 	pub fn new() -> TextEditWidgetBuilder {
 		let mut paint = Paint::default();
 		paint.set_color(Color::WHITE);
-		let mut font = Font::default();
+		let font = Font::default();
 		TextEditWidgetBuilder(TextEditWidget {
 			widget: WidgetState::default(),
 			text: "".to_string(),
@@ -45,7 +46,7 @@ impl TextEditWidget {
 }
 
 impl TextEditWidgetBuilder {
-	pub fn build(mut self) -> WidgetRef<TextEditWidget> {
+	pub fn build(self) -> WidgetRef<TextEditWidget> {
 		WidgetRef::new(self.0)
 	}
 }
@@ -100,7 +101,7 @@ impl Widget for TextEditWidget {
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		match event {
 			WidgetEvent::OnText {
-				keyboard,
+				keyboard: _,
 				character,
 			} => {
 				println!("{:?}", *character as usize);
@@ -124,8 +125,8 @@ impl Widget for TextEditWidget {
 				Reply::handled()
 			}
 			WidgetEvent::OnKeyDown {
-				keyboard,
-				key_physical,
+				keyboard: _,
+				key_physical: _,
 				key: Some(key),
 			} => match key {
 				VirtualKeyCode::Left => {
@@ -138,9 +139,11 @@ impl Widget for TextEditWidget {
 				}
 				_ => Reply::unhandled(),
 			},
-			WidgetEvent::OnClick { mouse, button, pos } => {
-				Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![*mouse]))
-			}
+			WidgetEvent::OnClick {
+				mouse,
+				button: _,
+				pos: _,
+			} => Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![*mouse])),
 			WidgetEvent::OnFocus { .. } => Reply::handled(),
 			_ => Reply::unhandled(),
 		}

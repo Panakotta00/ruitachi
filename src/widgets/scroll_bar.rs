@@ -1,10 +1,11 @@
-use crate::events::{Reply, WidgetEvent};
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Axis, Widget, WidgetState};
+use crate::{
+	events::{Reply, WidgetEvent},
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{Axis, Widget, WidgetState},
+};
 use cgmath::Vector2;
-use skia_bindings::SkParsePath_PathEncoding::Relative;
-use skia_bindings::SkRRect_Type::Rect;
+
 use skia_safe::{scalar, Color, Color4f};
 use std::ops::Range;
 
@@ -64,7 +65,7 @@ impl ScrollBarWidgetBuilder {
 		self
 	}
 
-	pub fn build(mut self) -> WidgetRef<ScrollBarWidget> {
+	pub fn build(self) -> WidgetRef<ScrollBarWidget> {
 		WidgetRef::new(self.0)
 	}
 }

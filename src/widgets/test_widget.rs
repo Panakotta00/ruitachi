@@ -1,11 +1,12 @@
-use crate::events::{Reply, WidgetEvent, WidgetFocusChange};
-use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
-use crate::widgets::{Widget, WidgetState};
+use crate::{
+	events::{Reply, WidgetEvent, WidgetFocusChange},
+	paint::Painter,
+	util::{Geometry, WidgetRef},
+	widgets::{Widget, WidgetState},
+};
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Paint, Rect};
-use std::fmt::Debug;
 
 pub struct TestWidget {
 	widget: WidgetState,
@@ -115,7 +116,7 @@ impl Widget for TestWidget {
 			WidgetEvent::OnKeyDown {
 				keyboard,
 				key_physical,
-				key,
+				key: _,
 			} => {
 				println!(
 					"Key '{}' down for {} from {}!",
@@ -125,7 +126,7 @@ impl Widget for TestWidget {
 			WidgetEvent::OnKeyUp {
 				keyboard,
 				key_physical,
-				key,
+				key: _,
 			} => {
 				println!(
 					"Key '{}' up for {} from {}!",
