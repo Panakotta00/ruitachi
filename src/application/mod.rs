@@ -1,17 +1,18 @@
 use crate::events::EventContext;
 use crate::platform::common::PlatformContext;
+use crate::platform::Context;
 use crate::util::WidgetRef;
 
-pub struct GUIApplication<P: PlatformContext> {
+pub struct GUIApplication {
 	event: EventContext,
-	platform: P,
+	platform: Context,
 }
 
-impl<P: PlatformContext> GUIApplication<P> {
-	pub fn new(platform: P) -> Self {
+impl GUIApplication {
+	pub fn new() -> Self {
 		Self {
 			event: EventContext::new(),
-			platform,
+			platform: crate::platform::create_platform(),
 		}
 	}
 }
@@ -25,7 +26,7 @@ pub trait Application {
 	fn run(&mut self);
 }
 
-impl<P: PlatformContext> Application for GUIApplication<P> {
+impl Application for GUIApplication {
 	fn event_context(&self) -> &EventContext {
 		&self.event
 	}

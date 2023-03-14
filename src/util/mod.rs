@@ -13,6 +13,10 @@ use std::ops::{CoerceUnsized, Deref, DerefMut};
 use std::os::raw::c_void;
 use std::rc::Rc;
 
+pub type scalar = f32;
+
+pub type WindowId = crate::platform::WindowId;
+
 /// An easy to use reference counted shared ptr.
 ///
 /// Holds an instance of some type.
@@ -31,8 +35,6 @@ use std::rc::Rc;
 /// assert_eq!(widget1_clone.get().0, 69);
 /// ```
 pub struct WidgetRef<T: ?Sized>(Rc<RefCell<T>>);
-
-type scalar = f32;
 
 impl<T: Sized> WidgetRef<T> {
 	pub fn new(val: T) -> Self {

@@ -72,19 +72,7 @@ impl BaseTrait for OtherChild {
 }
 
 fn main() {
-	let mut event_loop = EventLoop::new();
-
-	let mut window = WindowBuilder::new()
-		.with_title("Hello World")
-		.with_decorations(true)
-		.with_transparent(true)
-		.build(&event_loop)
-		.unwrap();
-
-	let mut app = GUIApplication::new(platform::wayland::Context::new(
-		&mut window,
-		&mut event_loop,
-	));
+	let mut app = GUIApplication::new();
 
 	let test1 = TestWidget::new().build();
 	let test2 = TestWidget::new().name("Test2").build();
@@ -157,9 +145,12 @@ fn main() {
 		)
 		.build();
 
-	let mut window_widget: WidgetRef<dyn Window> = WindowWidget::new(Some(panel)).build();
+	let mut window_widget1: WidgetRef<dyn Window> = WindowWidget::new(Some(panel)).build();
 
-	app.platform_context_mut().add_window(&window_widget);
+	let mut window_widget2: WidgetRef<dyn Window> = WindowWidget::new(Some(TestWidget::new().build())).build();
+
+	app.platform_context_mut().add_window(&window_widget1);
+	app.platform_context_mut().add_window(&window_widget2);
 
 	app.run();
 }

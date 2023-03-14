@@ -25,23 +25,57 @@ use winit::event::{ElementState, MouseButton};
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::CursorGrabMode;
 
-pub struct Context<'a, E: 'static> {
-	pub window_widget: Option<WidgetRef<dyn crate::widgets::Window>>,
+pub struct Context {
+	winit_context: crate::platform::winit::Context,
 	temp_file: File,
 	wayland_event_queue: EventQueue,
-	event_loop: Option<&'a mut EventLoop<E>>,
 	wayland_surface: Attached<WlSurface>,
 	wayland_display: Attached<WlDisplay>,
 	wayland_pool: Option<Main<WlShmPool>>,
 	wayland_globals: GlobalManager,
 	wayland_buffer: Option<Main<WlBuffer>>,
 	buffer_map: Option<memmap2::MmapMut>,
-	size: (i32, i32),
-	last_cursor_pos: Vector2<scalar>,
-	window: &'a mut Window,
 }
 
-impl<'a, E> Context<'a, E> {
+impl Context {
+	pub fn new() -> Self {
+		let winit_context = crate::platform::winit::Context::new();
+
+		// Create Wayland connection and get necessary globals
+		let mut wayland_event_queue = winit_context.event_loop
+			.wayland_display()
+			.map(|display| {
+				unsafe { Display::from_external_display(display as _) }.create_event_queue()
+			})
+			.unwrap();
+		let surface =
+			unsafe { Proxy::<WlSurface>::from_c_ptr(window.wayland_surface().unwrap() as _) };
+		let display =
+			unsafe { Proxy::<WlDisplay>::from_c_ptr(window.wayland_display().unwrap() as _) };
+		let wayland_surface = surface.attach(wayland_event_queue.token());
+		let wayland_display = display.attach(wayland_event_queue.token());
+
+		let wayland_globals = GlobalManager::new(&wayland_display);
+		wayland_event_queue
+			.sync_roundtrip(&mut (), |_, _, _| unreachable!())
+			.unwrap();
+
+		// Create Draw buffer
+		let mut temp = tempfile::tempfile().unwrap();
+
+		Self {
+			winit_context,
+			temp_file: temp,
+			wayland_event_queue,
+			wayland_surface,
+			wayland_display,
+			wayland_globals,
+			wayland_pool: None,
+			wayland_buffer: None,
+			buffer_map: None,
+		}
+	}
+
 	fn resize(&mut self, (width, height): (i32, i32)) {
 		let buffer_size = width * height * 4;
 		let old_buffer_size = self.size.0 * self.size.1 * 4;
@@ -84,18 +118,8 @@ impl<'a, E> Context<'a, E> {
 	}
 }
 
-pub fn conv_mouse_button(btn: winit::event::MouseButton) -> events::input::MouseButton {
-	match btn {
-		MouseButton::Left => events::input::MouseButton::Left,
-		MouseButton::Right => events::input::MouseButton::Right,
-		MouseButton::Middle => events::input::MouseButton::Middle,
-		MouseButton::Other(c) => events::input::MouseButton::Other(c),
-	}
-}
-
-impl<'a, E> PlatformContext for Context<'a, E> {
+impl PlatformContext for Context {
 	fn add_window(&mut self, window: &WidgetRef<dyn crate::widgets::Window>) {
-		self.window_widget = Some(window.clone());
 		self.resize(self.size);
 	}
 
@@ -197,7 +221,7 @@ impl<'a, E> PlatformContext for Context<'a, E> {
 							self.window_widget.as_ref().unwrap().clone(),
 							&self.last_cursor_pos,
 						);
-						let pos = self.last_cursor_pos;
+						let pos = self.last_cursor_pos.clone();
 						match state {
 							ElementState::Pressed => event_context.handle_mouse_button_down(
 								self,
@@ -275,48 +299,4 @@ impl<'a, E> PlatformContext for Context<'a, E> {
 	}
 
 	fn set_capture_cursor(&mut self, cursor: usize, should_capture: bool) {}
-}
-
-impl<'a, E> Context<'a, E> {
-	pub fn new(window: &'a mut Window, event_loop: &'a mut EventLoop<E>) -> Self {
-		// Create Wayland connection and get necessary globals
-		let mut wayland_event_queue = event_loop
-			.wayland_display()
-			.map(|display| {
-				unsafe { Display::from_external_display(display as _) }.create_event_queue()
-			})
-			.unwrap();
-		let surface =
-			unsafe { Proxy::<WlSurface>::from_c_ptr(window.wayland_surface().unwrap() as _) };
-		let display =
-			unsafe { Proxy::<WlDisplay>::from_c_ptr(window.wayland_display().unwrap() as _) };
-		let wayland_surface = surface.attach(wayland_event_queue.token());
-		let wayland_display = display.attach(wayland_event_queue.token());
-
-		let wayland_globals = GlobalManager::new(&wayland_display);
-		wayland_event_queue
-			.sync_roundtrip(&mut (), |_, _, _| unreachable!())
-			.unwrap();
-
-		// Create Draw buffer
-		let mut temp = tempfile::tempfile().unwrap();
-
-		let size = window.outer_size();
-
-		Self {
-			window_widget: None,
-			temp_file: temp,
-			wayland_event_queue,
-			event_loop: Some(event_loop),
-			wayland_surface,
-			wayland_display,
-			wayland_globals,
-			wayland_pool: None,
-			wayland_buffer: None,
-			buffer_map: None,
-			size: (size.width as i32, size.height as i32),
-			last_cursor_pos: Vector2::new(0.0, 0.0),
-			window,
-		}
-	}
 }

@@ -1,29 +1,32 @@
 use crate::paint::Painter;
-use crate::util::{Geometry, WidgetRef};
+use crate::util::{Geometry, WidgetRef, WindowId};
 use crate::widgets::{Widget, WidgetArrangement, WidgetState};
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Color, Paint, Rect};
 
 pub trait Window: Widget {
-	fn draw(&mut self, painter: &mut skia_safe::Surface) {
+	fn draw(&mut self, canvas: &mut skia_safe::Canvas, size: (scalar, scalar)) {
 		let geometry = Geometry::new(
 			Vector2::new(0.0, 0.0),
-			Vector2::new(painter.width() as scalar, painter.height() as scalar),
+			Vector2::new(size.0, size.1),
 			Vector2::new(0.0, 0.0),
 			Vector2::new(1.0, 1.0),
 		);
 
-		let canvas = painter.canvas();
 		canvas.clear(skia_safe::Color::DARK_GRAY);
 		canvas.save();
 		self.paint(geometry, 0, canvas);
 		canvas.restore();
 	}
+
+	fn id(&self) -> Option<WindowId>;
+	fn set_id(&mut self, id: Option<WindowId>);
 }
 
 pub struct WindowWidget {
 	widget: WidgetState,
+	window_id: Option<WindowId>,
 	content: Option<WidgetRef<dyn Widget>>,
 }
 
@@ -33,6 +36,7 @@ impl WindowWidget {
 	pub fn new(content: Option<WidgetRef<dyn Widget>>) -> WindowWidgetBuilder {
 		WindowWidgetBuilder(WindowWidget {
 			widget: WidgetState::default(),
+			window_id: None,
 			content,
 		})
 	}
@@ -44,7 +48,15 @@ impl WindowWidgetBuilder {
 	}
 }
 
-impl Window for WindowWidget {}
+impl Window for WindowWidget {
+	fn id(&self) -> Option<WindowId> {
+		self.window_id
+	}
+
+	fn set_id(&mut self, id: Option<WindowId>) {
+		self.window_id = id;
+	}
+}
 
 impl Widget for WindowWidget {
 	fn widget_state(&self) -> &WidgetState {
