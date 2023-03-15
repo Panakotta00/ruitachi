@@ -13,11 +13,10 @@ use ruitachi::{
 	util::WidgetRef,
 	widgets::{
 		Axis, BoxPanel, Growth, HorizontalAlignment, LinearPanel, LinearPanelDirection,
-		OverlayPanel, ScrollBarWidget, TestWidget, TextEditWidget, VerticalAlignment, Window,
-		WindowWidget,
+		OverlayPanel, ScrollBarWidget, ScrollPanel, ScrollPanelDirection, TestWidget,
+		TextBlockWidget, TextEditWidget, VerticalAlignment, Window, WindowWidget,
 	},
 };
-use ruitachi::widgets::{ScrollPanel, ScrollPanelDirection, TextBlockWidget};
 
 fn check_self(this: *const dyn BaseTrait, other: *const dyn BaseTrait, error: &str) {
 	if this as *const dyn BaseTrait == other as *const dyn BaseTrait {
@@ -113,7 +112,7 @@ fn main() {
 								ScrollPanel::new()
 									.direction(ScrollPanelDirection::Horizontal)
 									.content(TextEditWidget::new().build())
-									.build()
+									.build(),
 							)
 							.v_align(VerticalAlignment::Fill)
 							.h_align(HorizontalAlignment::Fill)
@@ -149,41 +148,45 @@ fn main() {
 
 	let window_widget1: WidgetRef<dyn Window> = WindowWidget::new(Some(panel)).build();
 
-	let window2_box =
-		LinearPanel::new(LinearPanelDirection::Horizontal)
-			.slot(
+	let window2_box = LinearPanel::new(LinearPanelDirection::Horizontal)
+		.slot(
 			ScrollPanel::new()
-			.direction(ScrollPanelDirection::Horizontal)
-			.content(
-				LinearPanel::new(LinearPanelDirection::Vertical)
-				.slot(
-					TestWidget::new()
-					.size(Vector2::new(300.0, 300.0))
-					.build(), Growth::Fit)
-					.slot(TextEditWidget::new().build(), Growth::Fit)
-					.slot(LinearPanel::new(LinearPanelDirection::Horizontal)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.slot(TestWidget::new().build(), Growth::Fit)
-						.build(), Growth::Fit)
-				.build())
-			.build(), Growth::Fill)
-			.slot(TestWidget::new().build(), Growth::Fill)
+				.direction(ScrollPanelDirection::Horizontal)
+				.content(
+					LinearPanel::new(LinearPanelDirection::Vertical)
+						.slot(
+							TestWidget::new().size(Vector2::new(300.0, 300.0)).build(),
+							Growth::Fit,
+						)
+						.slot(TextEditWidget::new().build(), Growth::Fit)
+						.slot(
+							LinearPanel::new(LinearPanelDirection::Horizontal)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.slot(TestWidget::new().build(), Growth::Fit)
+								.build(),
+							Growth::Fit,
+						)
+						.build(),
+				)
+				.build(),
+			Growth::Fill,
+		)
+		.slot(TestWidget::new().build(), Growth::Fill)
 		.build();
-	let window_widget2: WidgetRef<dyn Window> =
-		WindowWidget::new(Some(window2_box)).build();
+	let window_widget2: WidgetRef<dyn Window> = WindowWidget::new(Some(window2_box)).build();
 
 	app.platform_context_mut().add_window(&window_widget1);
 	app.platform_context_mut().add_window(&window_widget2);

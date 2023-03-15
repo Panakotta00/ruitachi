@@ -3,11 +3,11 @@ use cgmath::Vector2;
 
 use std::collections::HashMap;
 use winit::{
+	dpi::PhysicalSize,
 	event::{ElementState, Event, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
 	platform::run_return::EventLoopExtRunReturn,
 };
-use winit::dpi::PhysicalSize;
 
 pub type WindowId = winit::window::WindowId;
 
@@ -82,7 +82,7 @@ where
 
 			let old_size = window.size;
 			if old_size == size {
-				return
+				return;
 			}
 			window.size = size;
 
@@ -329,7 +329,10 @@ where
 			self.event_loop = event_loop;
 
 			if loop_braked {
-				let to_create: Vec<_> = self.deferred_widget_creating.drain(0..self.deferred_widget_creating.len()).collect();
+				let to_create: Vec<_> = self
+					.deferred_widget_creating
+					.drain(0..self.deferred_widget_creating.len())
+					.collect();
 				for window in to_create {
 					let mut winit_window = winit::window::WindowBuilder::new()
 						.with_title("Hello World")

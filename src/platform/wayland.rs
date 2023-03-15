@@ -48,8 +48,7 @@ impl WaylandWindowSpecificData {
 			.wayland_globals
 			.instantiate_exact::<wl_shm::WlShm>(1)
 			.unwrap();
-		self.wayland_pool =
-			Some(shm.create_pool(self.temp_file.as_raw_fd(), buffer_size as i32));
+		self.wayland_pool = Some(shm.create_pool(self.temp_file.as_raw_fd(), buffer_size as i32));
 
 		self.wayland_buffer = Some(self.wayland_pool.as_mut().unwrap().create_buffer(
 			0,
@@ -71,7 +70,6 @@ impl WaylandWindowSpecificData {
 				.unwrap()
 				.resize(buffer_size as i32);
 		}*/
-
 	}
 }
 
@@ -172,12 +170,9 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 			0,
 			0,
 		);
-		specific_data.wayland_surface.damage(
-			0,
-			0,
-			size.width as i32,
-			size.height as i32,
-		);
+		specific_data
+			.wayland_surface
+			.damage(0, 0, size.width as i32, size.height as i32);
 		specific_data
 			.wayland_event_queue
 			.sync_roundtrip(&mut (), |_, _, _| {})

@@ -1,3 +1,4 @@
+pub use crate::platform::winit::*;
 use crate::{platform::winit::WinitPlatformSpecifics, util::WidgetRef};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle, Win32Handle};
 use std::cmp::max;
@@ -6,7 +7,6 @@ use windows::Win32::Graphics::Gdi::{
 	PAINTSTRUCT,
 };
 use winit::event_loop::EventLoop;
-pub use crate::platform::winit::*;
 
 pub type Context = crate::platform::winit::Context<WindowsWinitSpecifics>;
 

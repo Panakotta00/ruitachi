@@ -1,21 +1,19 @@
 use crate::{
 	paint::Painter,
-	util::{Geometry, WidgetRef},
+	util::{scalar, Geometry, WidgetRef},
 	widgets::{
-		Axis, Axis::Vertical, PanelWidget, ScrollBarWidget,
-		Widget, WidgetArrangement, WidgetState,
+		Axis, Axis::Vertical, PanelWidget, ScrollBarWidget, Widget, WidgetArrangement, WidgetState,
 	},
 };
 use cgmath::Vector2;
 use skia_bindings::SkClipOp;
 use skia_safe::{Rect, Vector};
-use crate::util::scalar;
 
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub enum ScrollPanelDirection {
 	Horizontal,
 	Vertical,
-	Both
+	Both,
 }
 
 struct ScrollPanelCache {
@@ -40,10 +38,10 @@ impl ScrollPanel {
 			horizontal: None,
 			vertical: None,
 			content: None,
-			cache: WidgetRef::new(ScrollPanelCache{
+			cache: WidgetRef::new(ScrollPanelCache {
 				arranged_decorations: Default::default(),
 				arranged_content: None,
-			})
+			}),
 		})
 	}
 }
@@ -60,7 +58,8 @@ impl ScrollPanelBuilder {
 		if direction == ScrollPanelDirection::Vertical || direction == ScrollPanelDirection::Both {
 			self.0.vertical = Some(ScrollBarWidget::new().direction(Axis::Vertical).build());
 		}
-		if direction == ScrollPanelDirection::Horizontal || direction == ScrollPanelDirection::Both {
+		if direction == ScrollPanelDirection::Horizontal || direction == ScrollPanelDirection::Both
+		{
 			self.0.horizontal = Some(ScrollBarWidget::new().direction(Axis::Horizontal).build());
 		}
 		self
@@ -92,45 +91,61 @@ impl Widget for ScrollPanel {
 		};
 		let available_size = geometry.local_size();
 
-		let mut available_content_size = Vector2::new(match &self.vertical {
-			Some(scroll_bar) => available_size.x - scroll_bar.get().get_desired_size().x,
-			None => available_size.x,
-		}, match &self.horizontal {
-			Some(scroll_bar) => available_size.y - scroll_bar.get().get_desired_size().y,
-			None => available_size.y,
-		});
+		let mut available_content_size = Vector2::new(
+			match &self.vertical {
+				Some(scroll_bar) => available_size.x - scroll_bar.get().get_desired_size().x,
+				None => available_size.x,
+			},
+			match &self.horizontal {
+				Some(scroll_bar) => available_size.y - scroll_bar.get().get_desired_size().y,
+				None => available_size.y,
+			},
+		);
 
 		let overflow_size = desired_size - available_content_size;
-		let overflow_size = Vector2::new(match overflow_size.x {
-			v @ 0.0.. => {
-				horizontal = self.horizontal.is_some();
-				v
+		let overflow_size = Vector2::new(
+			match overflow_size.x {
+				v @ 0.0.. => {
+					horizontal = self.horizontal.is_some();
+					v
+				}
+				_ => 0.0,
 			},
-			_ => 0.0,
-		}, match overflow_size.y {
-			v @ 0.0.. => {
-				vertical = self.vertical.is_some();
-				v
+			match overflow_size.y {
+				v @ 0.0.. => {
+					vertical = self.vertical.is_some();
+					v
+				}
+				_ => 0.0,
 			},
-			_ => 0.0,
-		});
+		);
 
 		if let Some(content) = &self.content {
-			let pos = Vector2::new(match horizontal {
-				true => self.horizontal.as_ref().unwrap().get().value() as scalar * -overflow_size.x,
-				false => 0.0,
-			}, match vertical {
-				true => self.vertical.as_ref().unwrap().get().value() as scalar * -overflow_size.y,
-				false => 0.0,
-			});
+			let pos = Vector2::new(
+				match horizontal {
+					true => {
+						self.horizontal.as_ref().unwrap().get().value() as scalar * -overflow_size.x
+					}
+					false => 0.0,
+				},
+				match vertical {
+					true => {
+						self.vertical.as_ref().unwrap().get().value() as scalar * -overflow_size.y
+					}
+					false => 0.0,
+				},
+			);
 			let size = content.get().get_desired_size();
-			let size = Vector2::new(match geometry.local_size().x {
-				x if x > size.x => x,
-				_ => size.x,
-			}, match geometry.local_size().y {
-				y if y > size.y => y,
-				_ => size.y,
-			});
+			let size = Vector2::new(
+				match geometry.local_size().x {
+					x if x > size.x => x,
+					_ => size.x,
+				},
+				match geometry.local_size().y {
+					y if y > size.y => y,
+					_ => size.y,
+				},
+			);
 			let child = geometry.child_widget(content.clone(), pos, size);
 			arranged.push(child.clone());
 			self.cache.get().arranged_content = Some(child);
