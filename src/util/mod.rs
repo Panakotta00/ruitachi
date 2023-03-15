@@ -76,6 +76,7 @@ impl<T: ?Sized> Debug for WidgetRef<T> {
 }
 
 impl<T: ?Sized> WidgetRef<T> {
+	#[track_caller]
 	pub fn get(&self) -> RefMut<'_, T> {
 		self.0.deref().borrow_mut()
 	}

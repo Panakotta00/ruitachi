@@ -10,6 +10,5 @@ pub use crate::platform::windows::*;
 
 #[cfg(feature = "wayland")]
 pub mod wayland;
-
 #[cfg(feature = "wayland")]
 pub use crate::platform::wayland::*;

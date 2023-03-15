@@ -84,7 +84,7 @@ impl WinitPlatformSpecifics for WindowsWinitSpecifics {
 	) {
 	}
 
-	fn resize_window(
+	fn resize_buffer(
 		&mut self,
 		window: WidgetRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
 	) {

@@ -27,7 +27,6 @@ pub struct WaylandWindowSpecificData {
 	wayland_globals: GlobalManager,
 	wayland_buffer: Option<Main<WlBuffer>>,
 	buffer_map: Option<memmap2::MmapMut>,
-	size: PhysicalSize<u32>,
 }
 
 impl WaylandWindowSpecificData {
@@ -35,7 +34,6 @@ impl WaylandWindowSpecificData {
 		let size = window.inner_size();
 
 		let buffer_size = size.width * size.height * 4;
-		let old_buffer_size = self.size.width * self.size.height * 4;
 
 		// resize buffer
 		self.temp_file.set_len(buffer_size as u64).unwrap();
@@ -45,21 +43,14 @@ impl WaylandWindowSpecificData {
 				.expect("Unable to map draw-buffer to memory")
 		});
 
-		// Resize wayland pool & buffer
-		if old_buffer_size > buffer_size || self.wayland_pool.is_none() {
-			// Create Wayland Draw Buffer
-			let shm = self
-				.wayland_globals
-				.instantiate_exact::<wl_shm::WlShm>(1)
-				.unwrap();
-			self.wayland_pool =
-				Some(shm.create_pool(self.temp_file.as_raw_fd(), buffer_size as i32));
-		} else {
-			self.wayland_pool
-				.as_mut()
-				.unwrap()
-				.resize(buffer_size as i32);
-		}
+		// Create Wayland Draw Buffer
+		let shm = self
+			.wayland_globals
+			.instantiate_exact::<wl_shm::WlShm>(1)
+			.unwrap();
+		self.wayland_pool =
+			Some(shm.create_pool(self.temp_file.as_raw_fd(), buffer_size as i32));
+
 		self.wayland_buffer = Some(self.wayland_pool.as_mut().unwrap().create_buffer(
 			0,
 			size.width as i32,
@@ -74,8 +65,13 @@ impl WaylandWindowSpecificData {
 		self.wayland_event_queue
 			.sync_roundtrip(&mut (), |_, _, _| {})
 			.expect("meep");
+		/* else {
+			self.wayland_pool
+				.as_mut()
+				.unwrap()
+				.resize(buffer_size as i32);
+		}*/
 
-		self.size = size;
 	}
 }
 
@@ -121,15 +117,27 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 			wayland_pool: None,
 			wayland_buffer: None,
 			buffer_map: None,
-			size: Default::default(),
 		};
-		specific_data.resize_buffer(winit_window);
 		specific_data
 	}
 
-	fn remove_window(&mut self, _window: WidgetRef<Window<Self::WindowSpecificData>>) {}
+	fn remove_window(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
+		let data = &mut window.get().platform_specific_data;
+		data.buffer_map = None;
+		if let Some(buf) = &data.wayland_buffer {
+			buf.destroy();
+			data.wayland_buffer = None;
+		}
+		if let Some(pool) = &data.wayland_pool {
+			pool.destroy();
+			data.wayland_pool = None;
+		}
+		data.wayland_event_queue
+			.sync_roundtrip(&mut (), |_, _, _| unreachable!())
+			.unwrap();
+	}
 
-	fn resize_window(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
+	fn resize_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
 		let window = window.get();
 		let (mut data, mut window) = RefMut::map_split(window, |w| {
 			(&mut w.platform_specific_data, &mut w.winit_window)
@@ -139,7 +147,13 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 	}
 
 	fn flush_window_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
+		let (mut specific_data, mut winit_window) = RefMut::map_split(window.get(), |w| {
+			(&mut w.platform_specific_data, &mut w.winit_window)
+		});
+		specific_data.resize_buffer(&mut winit_window);
+		drop((specific_data, winit_window));
 		let window = window.get();
+		let size = window.size;
 		let (skia_data, mut specific_data) = RefMut::map_split(window, |w| {
 			(&mut w.skia_data, &mut w.platform_specific_data)
 		});
@@ -161,8 +175,8 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 		specific_data.wayland_surface.damage(
 			0,
 			0,
-			specific_data.size.width as i32,
-			specific_data.size.height as i32,
+			size.width as i32,
+			size.height as i32,
 		);
 		specific_data
 			.wayland_event_queue

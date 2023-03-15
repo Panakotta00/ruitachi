@@ -7,6 +7,7 @@ use winit::{
 	event_loop::{ControlFlow, EventLoop},
 	platform::run_return::EventLoopExtRunReturn,
 };
+use winit::dpi::PhysicalSize;
 
 pub type WindowId = winit::window::WindowId;
 
@@ -22,7 +23,7 @@ pub trait WinitPlatformSpecifics {
 		event_loop: &mut EventLoop<()>,
 	) -> Self::WindowSpecificData;
 	fn remove_window(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
-	fn resize_window(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
+	fn resize_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
 	fn flush_window_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
 }
 
@@ -34,26 +35,7 @@ pub struct Window<T> {
 	pub framework_window: WidgetRef<dyn crate::widgets::Window>,
 	pub platform_specific_data: T,
 	pub skia_data: Option<(skia_safe::ImageInfo, skia_safe::Bitmap)>,
-}
-
-impl<T> Window<T> {
-	pub fn resize_buffer(&mut self) {
-		let size = self.winit_window.inner_size();
-		let info = skia_safe::ImageInfo::new(
-			(size.width as i32, size.height as i32),
-			skia_safe::ColorType::BGRA8888,
-			skia_safe::AlphaType::Unpremul,
-			None,
-		);
-		if let Some((skia_info, skia_bitmap)) = &mut self.skia_data {
-			*skia_info = info;
-			skia_bitmap.reset();
-		} else {
-			self.skia_data = Some((info, skia_safe::Bitmap::new()));
-		}
-		let skia_data = self.skia_data.as_mut().unwrap();
-		skia_data.1.alloc_pixels_flags(&skia_data.0);
-	}
+	pub size: PhysicalSize<u32>,
 }
 
 /// Fully implemented platform context for winit.
@@ -91,6 +73,35 @@ where
 
 	fn window_by_id(&mut self, id: WindowId) -> Option<WidgetRef<Window<PS::WindowSpecificData>>> {
 		self.windows.get(&id).map(|w| w.clone())
+	}
+
+	fn resize_buffer(&mut self, window: WidgetRef<Window<PS::WindowSpecificData>>) {
+		{
+			let mut window = window.get();
+			let size = window.winit_window.inner_size();
+
+			let old_size = window.size;
+			if old_size == size {
+				return
+			}
+			window.size = size;
+
+			let info = skia_safe::ImageInfo::new(
+				(size.width as i32, size.height as i32),
+				skia_safe::ColorType::BGRA8888,
+				skia_safe::AlphaType::Unpremul,
+				None,
+			);
+			if let Some((skia_info, skia_bitmap)) = &mut window.skia_data {
+				*skia_info = info;
+				skia_bitmap.reset();
+			} else {
+				window.skia_data = Some((info, skia_safe::Bitmap::new()));
+			}
+			let skia_data = window.skia_data.as_mut().unwrap();
+			skia_data.1.alloc_pixels_flags(&skia_data.0);
+		}
+		self.platform_specifics.resize_buffer(window);
 	}
 }
 
@@ -133,7 +144,8 @@ where
 							window_id,
 						} => {
 							if let Some(window) = self.window_by_id(window_id) {
-								self.remove_window(&window.get().framework_window);
+								let framework_window = window.get().framework_window.clone();
+								self.remove_window(&framework_window);
 								if self.windows.len() < 1 {
 									*control_flow = ControlFlow::Exit;
 								}
@@ -144,12 +156,13 @@ where
 							window_id,
 						} => {
 							if let Some(window) = self.window_by_id(window_id) {
-								window.get().resize_buffer();
-								self.platform_specifics.resize_window(window);
+								window.get().winit_window.request_redraw();
 							}
 						}
 						Event::RedrawRequested(window_id) => {
 							if let Some(window) = self.window_by_id(window_id) {
+								self.resize_buffer(window.clone());
+
 								let size = window.get().winit_window.inner_size();
 								let window_ref = window.get();
 
@@ -316,10 +329,8 @@ where
 			self.event_loop = event_loop;
 
 			if loop_braked {
-				for window in self
-					.deferred_widget_creating
-					.drain(0..self.deferred_widget_creating.len())
-				{
+				let to_create: Vec<_> = self.deferred_widget_creating.drain(0..self.deferred_widget_creating.len()).collect();
+				for window in to_create {
 					let mut winit_window = winit::window::WindowBuilder::new()
 						.with_title("Hello World")
 						.with_decorations(true)
@@ -337,16 +348,17 @@ where
 						self.event_loop.as_mut().unwrap(),
 					);
 
-					let mut window = Window {
+					let mut window = WidgetRef::new(Window {
 						winit_window,
 						framework_window: window.clone(),
 						platform_specific_data,
 						skia_data: None,
-					};
+						size: Default::default(),
+					});
 
-					window.resize_buffer();
+					self.resize_buffer(window.clone());
 
-					self.windows.insert(id, WidgetRef::new(window));
+					self.windows.insert(id, window);
 				}
 			} else {
 				break;
