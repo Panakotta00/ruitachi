@@ -198,12 +198,9 @@ pub fn get_widget_path_under_position(
 		widget: widget.clone(),
 		children: Vec::new(),
 	};
-	for child_arrangement in widget
-		.get()
-		.calculate_arrange_children(geometry)
-		.iter()
-		.rev()
-	{
+	let widget = widget.get();
+	let arranged_children = widget.get_arranged_children();
+	for child_arrangement in arranged_children.iter().rev() {
 		if !child_arrangement.geometry.contains_absolute_pos(pos) {
 			continue;
 		}

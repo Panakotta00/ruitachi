@@ -21,7 +21,10 @@ impl WidgetArrangement {
 }
 
 /// Boxed iterator over widgets
-pub type Children<'a> = Box<dyn Iterator<Item = &'a WidgetRef<dyn Widget>> + 'a>;
+pub type Children = Vec<WidgetRef<dyn Widget>>;
+
+/// Boxes iterator over widget arrangements
+pub type Arrangements = Vec<WidgetArrangement>;
 
 /// The basic widget state and data every widget in the widget graph has.
 ///
@@ -30,7 +33,6 @@ pub type Children<'a> = Box<dyn Iterator<Item = &'a WidgetRef<dyn Widget>> + 'a>
 pub struct WidgetState {
 	pub parent: Option<WidgetRef<dyn Widget>>,
 	pub cached_geometry: Geometry,
-	pub arranged_children: Vec<WidgetArrangement>,
 }
 
 /// A widget is the basic trait needed for any GUI "Element" to correctly interface
@@ -112,58 +114,29 @@ pub trait Widget {
 	/// Provides the geometry, layer and needed painter to start drawing the widget it self.
 	/// Caller has to ensure the widget has already arranged its children properly before calling
 	/// this function. And it's recommended to encapsulate the painter settings.
-	///
-	/// # Default Implementation
-	/// Does nothing and just returns the layer as it was passed in.
-	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		geometry;
-		painter;
-		layer
-	}
+	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32;
 
 	/// Returns the desired size of the widget which is mostly used in the alignment process
 	/// of the children of a parent widget like panels etc.
 	/// It's not guaranteed the widget will get desired space but it helps to arrange it as best as possible.
-	///
-	/// # Default Implementation
-	/// Returns a desired size of 0.0 x 0.0
-	fn get_desired_size(&self) -> Vector2<scalar> {
-		Vector2::new(0.0, 0.0)
-	}
+	fn get_desired_size(&self) -> Vector2<scalar>;
 
 	/// Allows to retrieve an boxed iterator for all children this widget has.
-	///
-	/// # Default Implementation
-	/// Returns an empty iterator.
-	fn get_children(&self) -> Children<'_> {
-		Box::new(std::iter::empty())
-	}
+	fn get_children(&self) -> Children;
 
 	/// Called to arrange all child widgets based on the geometry and should be returned.
 	/// Not for direct use to get the arranged widgets! Use [get_arranged_children()] instead!
 	///
 	/// This function gets called by the system after the widget's validation state is marked as
 	/// dirty layout and should rearrange all child widgets based on the passed new geometry.
-	/// The arranged children should then be returned.
-	/// The caller usually then stores the arranged children in the widget state.
-	/// Hence this function is immutable.
-	///
-	/// # Default Implementation
-	/// Returns an empty list.
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
-		Vec::new()
-	}
+	/// The arranged children should then be stored in the widgets state.
+	fn arrange_children(&mut self, geometry: Geometry);
 
 	/// Retrieves the arranged children of this widget.
 	///
 	/// This function does not arrange the children. It just returns the cached arrangement.
 	/// To rearrange the child widgets, invalidate the layout of this widget.
-	///
-	/// # Default Implementation
-	/// Returns the cached arranged children of the widget state.
-	fn get_arranged_children(&self) -> &Vec<WidgetArrangement> {
-		&self.widget_state().arranged_children
-	}
+	fn get_arranged_children(&self) -> Arrangements;
 
 	/// Called by the system when an event (mostly user input) occurs.
 	///
@@ -177,20 +150,5 @@ pub trait Widget {
 	///
 	/// # Default Implementation
 	/// Returns the cached geometry from the widget state.
-	fn cached_geometry(&self) -> Geometry {
-		self.widget_state().cached_geometry
-	}
-}
-
-impl dyn Widget {
-	/// Arranges the widget's children and stores them in the widget state.
-	///
-	/// Mostly called by the invalidation mechanism when the widget's layout got invalidated.
-	pub fn calculate_arrange_children(&mut self, geometry: Geometry) -> &Vec<WidgetArrangement> {
-		let widgets = self.arrange_children(geometry);
-		let state = self.widget_state_mut();
-		state.cached_geometry = geometry;
-		state.arranged_children = widgets;
-		&state.arranged_children
-	}
+	fn cached_geometry(&self) -> Geometry;
 }

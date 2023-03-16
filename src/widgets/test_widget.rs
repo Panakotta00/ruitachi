@@ -7,9 +7,11 @@ use crate::{
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Paint, Rect};
+use crate::widgets::{Arrangements, Children};
+use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
 pub struct TestWidget {
-	widget: WidgetState,
+	leaf: LeafState,
 	paint: Paint,
 	size: Vector2<scalar>,
 	name: String,
@@ -37,7 +39,7 @@ impl TestWidget {
 			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(255)
 		});
 		TestWidgetBuilder(TestWidget {
-			widget: WidgetState::default(),
+			leaf: Default::default(),
 			paint,
 			size: Vector2::new(10.0, 10.0),
 			name: "Unnamed".into(),
@@ -71,11 +73,11 @@ impl TestWidgetBuilder {
 
 impl Widget for TestWidget {
 	fn widget_state(&self) -> &WidgetState {
-		&self.widget
+		&self.leaf.widget
 	}
 
 	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.widget
+		&mut self.leaf.widget
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
@@ -86,6 +88,18 @@ impl Widget for TestWidget {
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
 		self.size
+	}
+
+	fn get_children(&self) -> Children {
+		self.leaf_get_children()
+	}
+
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.leaf_arrange_children(geometry)
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		self.leaf_get_arranged_children()
 	}
 
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
@@ -147,5 +161,19 @@ impl Widget for TestWidget {
 			}
 		}
 		Reply::handled()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.leaf_cached_geometry()
+	}
+}
+
+impl LeafWidget for TestWidget {
+	fn leaf_state(&self) -> &LeafState {
+		&self.leaf
+	}
+
+	fn leaf_state_mut(&mut self) -> &mut LeafState {
+		&mut self.leaf
 	}
 }

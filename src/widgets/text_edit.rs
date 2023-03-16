@@ -7,9 +7,11 @@ use crate::{
 use cgmath::Vector2;
 use skia_safe::{scalar, Color, Font, Paint, Point, Rect};
 use winit::event::VirtualKeyCode;
+use crate::widgets::{Arrangements, Children};
+use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
 pub struct TextEditWidget {
-	widget: WidgetState,
+	leaf: LeafState,
 	text: String,
 	cursor: usize,
 	cursor_byte: usize,
@@ -25,7 +27,7 @@ impl TextEditWidget {
 		paint.set_color(Color::WHITE);
 		let font = Font::default();
 		TextEditWidgetBuilder(TextEditWidget {
-			widget: WidgetState::default(),
+			leaf: Default::default(),
 			text: "".to_string(),
 			cursor: 0,
 			cursor_byte: 0,
@@ -53,11 +55,11 @@ impl TextEditWidgetBuilder {
 
 impl Widget for TextEditWidget {
 	fn widget_state(&self) -> &WidgetState {
-		&self.widget
+		&self.leaf.widget
 	}
 
 	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.widget
+		&mut self.leaf.widget
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
@@ -147,5 +149,31 @@ impl Widget for TextEditWidget {
 			WidgetEvent::OnFocus { .. } => Reply::handled(),
 			_ => Reply::unhandled(),
 		}
+	}
+
+	fn get_children(&self) -> Children {
+		self.leaf_get_children()
+	}
+
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.leaf_arrange_children(geometry)
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		self.leaf_get_arranged_children()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.cached_geometry()
+	}
+}
+
+impl LeafWidget for TextEditWidget {
+	fn leaf_state(&self) -> &LeafState {
+		&self.leaf
+	}
+
+	fn leaf_state_mut(&mut self) -> &mut LeafState {
+		&mut self.leaf
 	}
 }

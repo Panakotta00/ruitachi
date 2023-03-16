@@ -6,6 +6,7 @@ use crate::{
 use cgmath::Vector2;
 
 use skia_safe::scalar;
+use crate::widgets::{Arrangements, Children};
 
 pub trait Window: Widget {
 	fn draw(&mut self, canvas: &mut skia_safe::Canvas, size: (scalar, scalar)) {
@@ -30,6 +31,8 @@ pub struct WindowWidget {
 	widget: WidgetState,
 	window_id: Option<WindowId>,
 	content: Option<WidgetRef<dyn Widget>>,
+	cached_content: Option<WidgetArrangement>,
+	cached_geometry: Geometry,
 }
 
 pub struct WindowWidgetBuilder(WindowWidget);
@@ -40,6 +43,8 @@ impl WindowWidget {
 			widget: WidgetState::default(),
 			window_id: None,
 			content,
+			cached_content: None,
+			cached_geometry: Default::default(),
 		})
 	}
 }
@@ -77,11 +82,36 @@ impl Widget for WindowWidget {
 		}
 	}
 
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+	fn get_desired_size(&self) -> Vector2<scalar> {
 		if let Some(content) = &self.content {
-			vec![WidgetArrangement::new(content.clone(), geometry)]
+			content.get().get_desired_size()
 		} else {
-			vec![]
+			Vector2::new(0.0, 0.0)
 		}
+	}
+
+	fn get_children(&self) -> Children {
+		match &self.content {
+			Some(content) => vec![content.clone()],
+			None => vec![]
+		}
+	}
+
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.cached_content = match &self.content {
+			Some(content) => {
+				content.get().arrange_children(geometry);
+				Some(WidgetArrangement::new(content.clone(), geometry))
+			},
+			None => None,
+		}
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		vec![self.cached_content.clone()].into_iter().filter_map(|v| v).collect()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.cached_geometry
 	}
 }

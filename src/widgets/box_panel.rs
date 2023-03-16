@@ -8,9 +8,10 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::scalar;
+use crate::widgets::{Arrangements, PanelState};
 
 pub struct BoxPanel {
-	widget: WidgetState,
+	panel: PanelState,
 	child: WidgetRef<dyn Widget>,
 	v_align: VerticalAlignment,
 	h_align: HorizontalAlignment,
@@ -55,7 +56,7 @@ impl BoxPanelBuilder {
 impl BoxPanel {
 	pub fn new(child: WidgetRef<dyn Widget>) -> BoxPanelBuilder {
 		BoxPanelBuilder(BoxPanel {
-			widget: WidgetState::default(),
+			panel: Default::default(),
 			child,
 			v_align: VerticalAlignment::Top,
 			h_align: HorizontalAlignment::Left,
@@ -67,19 +68,19 @@ impl BoxPanel {
 
 impl Widget for BoxPanel {
 	fn widget_state(&self) -> &WidgetState {
-		&self.widget
+		&self.panel.widget
 	}
 
 	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.widget
+		&mut self.panel.widget
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		PanelWidget::paint(self, geometry, layer, painter)
+		self.panel_paint(geometry, layer, painter)
 	}
 
-	fn get_children(&self) -> Children<'_> {
-		Box::new(std::iter::once(&self.child))
+	fn get_children(&self) -> Children {
+		Vec::new()
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
@@ -93,7 +94,29 @@ impl Widget for BoxPanel {
 		size
 	}
 
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.panel_arrange_children(geometry);
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		self.panel_get_arranged_children()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.panel_cached_geometry()
+	}
+}
+
+impl PanelWidget for BoxPanel {
+	fn panel_state(&self) -> &PanelState {
+		&self.panel
+	}
+
+	fn panel_state_mut(&mut self) -> &mut PanelState {
+		&mut self.panel
+	}
+
+	fn rearrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
 		let mut size = self.get_desired_size();
 		let mut pos = Vector2::new(0.0, 0.0);
 		match self.v_align {
@@ -123,5 +146,3 @@ impl Widget for BoxPanel {
 		vec![geometry.child_widget(self.child.clone(), pos, size)]
 	}
 }
-
-impl PanelWidget for BoxPanel {}

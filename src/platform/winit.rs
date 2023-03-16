@@ -2,6 +2,7 @@ use crate::{events, events::EventContext, platform::common::PlatformContext, uti
 use cgmath::Vector2;
 
 use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 use winit::{
 	dpi::PhysicalSize,
 	event::{ElementState, Event, WindowEvent},
@@ -76,9 +77,10 @@ where
 	}
 
 	fn resize_buffer(&mut self, window: WidgetRef<Window<PS::WindowSpecificData>>) {
+		let size;
 		{
 			let mut window = window.get();
-			let size = window.winit_window.inner_size();
+			size = window.winit_window.inner_size();
 
 			let old_size = window.size;
 			if old_size == size {
@@ -101,7 +103,15 @@ where
 			let skia_data = window.skia_data.as_mut().unwrap();
 			skia_data.1.alloc_pixels_flags(&skia_data.0);
 		}
-		self.platform_specifics.resize_buffer(window);
+		self.platform_specifics.resize_buffer(window.clone());
+
+		let geometry = Geometry::new(
+			Vector2::new(0.0, 0.0),
+			Vector2::new(size.width as scalar, size.height as scalar),
+			Vector2::new(0.0, 0.0),
+			Vector2::new(1.0, 1.0),
+		);
+		window.get().framework_window.get().deref_mut().arrange_children(geometry);
 	}
 }
 

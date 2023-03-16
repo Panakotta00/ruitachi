@@ -5,9 +5,11 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::{scalar, Point};
+use crate::widgets::{Arrangements, Children};
+use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
 pub struct TextBlockWidget {
-	widget: WidgetState,
+	leaf: LeafState,
 	text: String,
 	text_style: TextStyle,
 }
@@ -20,7 +22,7 @@ pub struct TextBlockWidgetBuilder(TextBlockWidget);
 impl TextBlockWidget {
 	pub fn new() -> TextBlockWidgetBuilder {
 		TextBlockWidgetBuilder(TextBlockWidget {
-			widget: WidgetState::default(),
+			leaf: Default::default(),
 			text: String::default(),
 			text_style: TextStyle::default(),
 		})
@@ -40,11 +42,11 @@ impl TextBlockWidgetBuilder {
 
 impl Widget for TextBlockWidget {
 	fn widget_state(&self) -> &WidgetState {
-		&self.widget
+		&self.leaf.widget
 	}
 
 	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.widget
+		&mut self.leaf.widget
 	}
 
 	fn paint(&self, _geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
@@ -63,5 +65,31 @@ impl Widget for TextBlockWidget {
 			.font
 			.measure_str(&self.text, Some(&self.text_style.color));
 		Vector2::new(rect.height(), rect.width())
+	}
+
+	fn get_children(&self) -> Children {
+		self.leaf_get_children()
+	}
+
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.leaf_arrange_children(geometry)
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		self.leaf_get_arranged_children()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.leaf_cached_geometry()
+	}
+}
+
+impl LeafWidget for TextBlockWidget {
+	fn leaf_state(&self) -> &LeafState {
+		&self.leaf
+	}
+
+	fn leaf_state_mut(&mut self) -> &mut LeafState {
+		&mut self.leaf
 	}
 }

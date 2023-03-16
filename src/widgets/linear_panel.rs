@@ -5,6 +5,7 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::scalar;
+use crate::widgets::{Arrangements, PanelState};
 
 pub enum LinearPanelDirection {
 	Vertical,
@@ -17,7 +18,7 @@ pub struct LinearPanelSlot {
 }
 
 pub struct LinearPanel {
-	widget: WidgetState,
+	panel: PanelState,
 	direction: LinearPanelDirection,
 	children: Vec<LinearPanelSlot>,
 }
@@ -38,7 +39,7 @@ impl LinearPanelBuilder {
 impl LinearPanel {
 	pub fn new(direction: LinearPanelDirection) -> LinearPanelBuilder {
 		LinearPanelBuilder(LinearPanel {
-			widget: Default::default(),
+			panel: Default::default(),
 			direction,
 			children: vec![],
 		})
@@ -63,15 +64,15 @@ impl LinearPanel {
 
 impl Widget for LinearPanel {
 	fn widget_state(&self) -> &WidgetState {
-		&self.widget
+		&self.panel.widget
 	}
 
 	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.widget
+		&mut self.panel.widget
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		PanelWidget::paint(self, geometry, layer, painter)
+		self.panel_paint(geometry, layer, painter)
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
@@ -92,11 +93,33 @@ impl Widget for LinearPanel {
 		size
 	}
 
-	fn get_children(&self) -> Children<'_> {
-		Box::new(self.children.iter().map(|child| &child.widget))
+	fn get_children(&self) -> Children {
+		self.children.iter().map(|child| child.widget.clone()).collect()
 	}
 
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.panel_arrange_children(geometry);
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		self.panel_get_arranged_children()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.panel_cached_geometry()
+	}
+}
+
+impl PanelWidget for LinearPanel {
+	fn panel_state(&self) -> &PanelState {
+		&self.panel
+	}
+
+	fn panel_state_mut(&mut self) -> &mut PanelState {
+		&mut self.panel
+	}
+
+	fn rearrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
 		let mut list = Vec::new();
 		let _width_step = self.get_dir_val(&geometry.local_size()) / self.children.len() as scalar;
 		let mut fit = Vec::new();
@@ -137,10 +160,10 @@ impl Widget for LinearPanel {
 			let width = if fit.contains(&&child.widget) {
 				desired_width
 					+ if sized_fitted {
-						available_width / fit.len() as scalar
-					} else {
-						0.0
-					}
+					available_width / fit.len() as scalar
+				} else {
+					0.0
+				}
 			} else if value.contains(&&child.widget) {
 				if let Growth::Val(val) = child.growth {
 					desired_width + available_width * (val / sum_value)
@@ -161,5 +184,3 @@ impl Widget for LinearPanel {
 		list
 	}
 }
-
-impl PanelWidget for LinearPanel {}

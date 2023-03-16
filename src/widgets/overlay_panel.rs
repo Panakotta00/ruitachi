@@ -6,13 +6,14 @@ use crate::{
 use cgmath::Vector2;
 
 use skia_safe::scalar;
+use crate::widgets::{Arrangements, PanelState};
 
 pub struct OverlayPanelSlot {
 	pub widget: WidgetRef<dyn Widget>,
 }
 
 pub struct OverlayPanel {
-	widget: WidgetState,
+	panel: PanelState,
 	children: Vec<OverlayPanelSlot>,
 }
 
@@ -32,7 +33,7 @@ impl OverlayPanelBuilder {
 impl OverlayPanel {
 	pub fn new() -> OverlayPanelBuilder {
 		OverlayPanelBuilder(OverlayPanel {
-			widget: Default::default(),
+			panel: Default::default(),
 			children: vec![],
 		})
 	}
@@ -40,15 +41,15 @@ impl OverlayPanel {
 
 impl Widget for OverlayPanel {
 	fn widget_state(&self) -> &WidgetState {
-		&self.widget
+		&self.panel.widget
 	}
 
 	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.widget
+		&mut self.panel.widget
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		PanelWidget::paint(self, geometry, layer, painter)
+		self.panel_paint(geometry, layer, painter)
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
@@ -61,11 +62,33 @@ impl Widget for OverlayPanel {
 		size
 	}
 
-	fn get_children(&self) -> Children<'_> {
-		Box::new(self.children.iter().map(|child| &child.widget))
+	fn get_children(&self) -> Children {
+		self.children.iter().map(|child| child.widget.clone()).collect()
 	}
 
-	fn arrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+	fn arrange_children(&mut self, geometry: Geometry) {
+		self.panel_arrange_children(geometry);
+	}
+
+	fn get_arranged_children(&self) -> Arrangements {
+		self.panel_get_arranged_children()
+	}
+
+	fn cached_geometry(&self) -> Geometry {
+		self.panel_cached_geometry()
+	}
+}
+
+impl PanelWidget for OverlayPanel {
+	fn panel_state(&self) -> &PanelState {
+		&self.panel
+	}
+
+	fn panel_state_mut(&mut self) -> &mut PanelState {
+		&mut self.panel
+	}
+
+	fn rearrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
 		self.children
 			.iter()
 			.map(|slot| {
@@ -76,5 +99,3 @@ impl Widget for OverlayPanel {
 			.collect()
 	}
 }
-
-impl PanelWidget for OverlayPanel {}

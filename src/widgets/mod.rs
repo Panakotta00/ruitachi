@@ -10,6 +10,7 @@ mod text_block;
 mod text_edit;
 mod widget;
 mod window;
+mod leaf_widget;
 
 pub use box_panel::*;
 pub use layout::*;
