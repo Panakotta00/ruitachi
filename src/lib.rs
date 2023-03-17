@@ -1,6 +1,7 @@
 #![feature(coerce_unsized)]
 #![feature(unsize)]
 #![feature(trait_upcasting)]
+#![feature(arbitrary_self_types)]
 //#![warn(missing_docs)]
 //#![deny(missing_doc_code_examples)]
 

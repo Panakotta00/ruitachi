@@ -1,3 +1,5 @@
+use std::cell::{Ref, RefMut};
+use std::ops::Range;
 use crate::{
 	events::{Reply, WidgetEvent},
 	paint::Painter,
@@ -5,10 +7,8 @@ use crate::{
 	widgets::{Axis, Widget, WidgetState},
 };
 use cgmath::Vector2;
-
 use skia_safe::{scalar, Color, Color4f};
-use std::ops::Range;
-use crate::widgets::{Arrangements, Children, WidgetArrangement};
+use crate::widgets::{Arrangements, Children, PanelState, WidgetArrangement, WidgetImpl};
 use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
 pub enum ScrollBarHandleSize {
@@ -25,7 +25,7 @@ impl ScrollBarHandleSize {
 	}
 }
 
-pub struct ScrollBarWidget {
+pub struct ScrollBarWidgetState {
 	leaf: LeafState,
 	direction: Axis,
 	range: Range<f64>,
@@ -36,11 +36,13 @@ pub struct ScrollBarWidget {
 	drag_start: Option<(f64, Vector2<scalar>)>,
 }
 
+pub type ScrollBarWidget = WidgetImpl<ScrollBarWidgetState>;
+
 pub struct ScrollBarWidgetBuilder(ScrollBarWidget);
 
 impl ScrollBarWidget {
 	pub fn new() -> ScrollBarWidgetBuilder {
-		ScrollBarWidgetBuilder(ScrollBarWidget {
+		ScrollBarWidgetBuilder(ScrollBarWidgetState {
 			leaf: Default::default(),
 			direction: Axis::Vertical,
 			range: 0.0..100.0,
@@ -49,26 +51,27 @@ impl ScrollBarWidget {
 			handle: skia_safe::Paint::new(Color4f::from(Color::BLUE), None),
 			tray: skia_safe::Paint::new(Color4f::from(Color::RED), None),
 			drag_start: None,
-		})
+		}.into())
 	}
 
 	pub fn value(&self) -> f64 {
-		self.value
+		self.state().value
 	}
 
 	pub fn set_value(&mut self, value: f64) {
-		self.value = value.clamp(0.0, 1.0);
+		self.state_mut().value = value.clamp(0.0, 1.0);
 	}
 
 	pub fn set_range(&mut self, range: Range<f64>) {
-		self.range = range;
-		self.set_value(self.value);
+		self.state_mut().range = range;
+		let value = self.state().value;
+		self.set_value(value);
 	}
 }
 
 impl ScrollBarWidgetBuilder {
 	pub fn direction(mut self, direction: Axis) -> Self {
-		self.0.direction = direction;
+		self.0.state_mut().direction = direction;
 		self
 	}
 
@@ -78,31 +81,32 @@ impl ScrollBarWidgetBuilder {
 }
 
 impl Widget for ScrollBarWidget {
-	fn widget_state(&self) -> &WidgetState {
-		&self.leaf.widget
+	fn widget_state(&self) -> Ref<WidgetState> {
+		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.leaf.widget
+	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		let size = self.handle_size.get_size(&self.range);
-		let length = self.range.end - self.range.start;
+		let state = self.state();
+		let size = state.handle_size.get_size(&state.range);
+		let length = state.range.end - state.range.start;
 		let local_size = geometry.local_size();
-		let (size_direct, size_inv) = self.direction.get_vec_axis(local_size);
+		let (size_direct, size_inv) = state.direction.get_vec_axis(local_size);
 		let ppv = size_direct as f64 / (length + size) as f64;
 		painter.draw_rect(
 			skia_safe::Rect::new(0.0, 0.0, local_size.x, local_size.y),
-			&self.tray,
+			&state.tray,
 		);
-		let tl = self
+		let tl = state
 			.direction
-			.create_vec((length * self.value * ppv) as scalar, 0.0);
-		let br = self
+			.create_vec((length * state.value * ppv) as scalar, 0.0);
+		let br = state
 			.direction
-			.create_vec(((length * self.value + size) * ppv) as scalar, size_inv);
-		painter.draw_rect(skia_safe::Rect::new(tl.x, tl.y, br.x, br.y), &self.handle);
+			.create_vec(((length * state.value + size) * ppv) as scalar, size_inv);
+		painter.draw_rect(skia_safe::Rect::new(tl.x, tl.y, br.x, br.y), &state.handle);
 		layer + 1
 	}
 
@@ -125,27 +129,30 @@ impl Widget for ScrollBarWidget {
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		match event {
 			WidgetEvent::OnCursorMove { pos, .. } => {
-				if let Some(start) = self.drag_start {
+				let state = self.state();
+				if let Some(start) = state.drag_start {
 					let local_size = self.cached_geometry().local_size();
-					let local_axis = self.direction.get_vec_axis(local_size).0 as f64;
-					let handle_size = self.handle_size.get_size(&self.range);
-					let length = self.range.end - self.range.start;
+					let local_axis = state.direction.get_vec_axis(local_size).0 as f64;
+					let handle_size = state.handle_size.get_size(&state.range);
+					let length = state.range.end - state.range.start;
 					let value_per_local = (length + handle_size) / local_axis;
+					let diff = state.direction.get_vec_axis(pos - start.1).0 as f64;
+					drop(state);
 
-					let diff = self.direction.get_vec_axis(pos - start.1).0 as f64;
 					self.set_value(diff * value_per_local / length + start.0);
-					println!("Scroll: {}", self.value());
+
 					Reply::handled()
 				} else {
 					Reply::unhandled()
 				}
 			}
 			WidgetEvent::OnMouseButtonDown { mouse, pos, .. } => {
-				self.drag_start = Some((self.value, *pos));
+				let mut state = self.state_mut();
+				state.drag_start = Some((state.value, *pos));
 				Reply::handled().capture_cursor(*mouse)
 			}
 			WidgetEvent::OnMouseButtonUp { mouse, .. } => {
-				self.drag_start = None;
+				self.state_mut().drag_start = None;
 				Reply::handled().release_cursor(*mouse)
 			}
 			_ => Reply::unhandled(),
@@ -158,11 +165,11 @@ impl Widget for ScrollBarWidget {
 }
 
 impl LeafWidget for ScrollBarWidget {
-	fn leaf_state(&self) -> &LeafState {
-		&self.leaf
+	fn leaf_state(&self) -> Ref<LeafState> {
+		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> &mut LeafState {
-		&mut self.leaf
+	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

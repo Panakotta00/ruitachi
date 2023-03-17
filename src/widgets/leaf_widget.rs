@@ -1,17 +1,18 @@
+use std::cell::{Ref, RefMut};
 use crate::{paint::Painter, util::Geometry, widgets::Widget};
 
 use skia_safe::Vector;
 use crate::widgets::{Arrangements, Children, WidgetArrangement, WidgetState};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct LeafState {
     pub widget: WidgetState,
     cached_geometry: Geometry,
 }
 
 pub trait LeafWidget: Widget {
-    fn leaf_state(&self) -> &LeafState;
-    fn leaf_state_mut(&mut self) -> &mut LeafState;
+    fn leaf_state(&self) -> Ref<LeafState>;
+    fn leaf_state_mut(&mut self) -> RefMut<LeafState>;
 
     /// Leaf implementation of [Widget.get_children()]
     ///
@@ -26,7 +27,7 @@ pub trait LeafWidget: Widget {
     /// # Default Implementation
     /// Does nothing just safes the geometry as cached to leaf state
     fn leaf_arrange_children(&mut self, geometry: Geometry){
-        let state = self.leaf_state_mut();
+        let mut state = self.leaf_state_mut();
         state.cached_geometry = geometry;
     }
 

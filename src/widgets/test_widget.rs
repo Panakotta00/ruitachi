@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefMut};
 use crate::{
 	events::{Reply, WidgetEvent, WidgetFocusChange},
 	paint::Painter,
@@ -7,16 +8,18 @@ use crate::{
 use cgmath::Vector2;
 use rand::Rng;
 use skia_safe::{scalar, Paint, Rect};
-use crate::widgets::{Arrangements, Children};
+use crate::widgets::{Arrangements, Children, WidgetImpl};
 use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
-pub struct TestWidget {
+pub struct TestWidgetState {
 	leaf: LeafState,
 	paint: Paint,
 	size: Vector2<scalar>,
 	name: String,
 	counter: i32,
 }
+
+pub type TestWidget = WidgetImpl<TestWidgetState>;
 
 pub struct TestWidgetBuilder(TestWidget);
 
@@ -38,31 +41,33 @@ impl TestWidget {
 			let val = rng.gen::<f32>() * 360.0;
 			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(255)
 		});
-		TestWidgetBuilder(TestWidget {
+		TestWidgetBuilder(TestWidgetState {
 			leaf: Default::default(),
 			paint,
 			size: Vector2::new(10.0, 10.0),
 			name: "Unnamed".into(),
 			counter: 0,
-		})
+		}.into())
 	}
 
 	pub fn random_color(&mut self) {
-		self.paint.set_color(unsafe {
+		let mut state = self.state_mut();
+		let alpha = state.paint.alpha();
+		state.paint.set_color(unsafe {
 			let val = TEST_WIDGET_RAND.as_mut().unwrap().gen::<f32>() * 360.0;
-			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(self.paint.alpha())
+			skia_safe::HSV::from((val, 1.0, 1.0)).to_color(alpha)
 		});
 	}
 }
 
 impl TestWidgetBuilder {
 	pub fn size(mut self, size: Vector2<scalar>) -> Self {
-		self.0.size = size;
+		self.0.state_mut().size = size;
 		self
 	}
 
 	pub fn name(mut self, name: &str) -> Self {
-		self.0.name = name.into();
+		self.0.state_mut().name = name.into();
 		self
 	}
 
@@ -72,22 +77,22 @@ impl TestWidgetBuilder {
 }
 
 impl Widget for TestWidget {
-	fn widget_state(&self) -> &WidgetState {
-		&self.leaf.widget
+	fn widget_state(&self) -> Ref<WidgetState> {
+		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.leaf.widget
+	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
 		let size = geometry.local_size();
-		painter.draw_rect(Rect::new(0.0, 0.0, size.x, size.y), &self.paint);
+		painter.draw_rect(Rect::new(0.0, 0.0, size.x, size.y), &self.state().paint);
 		layer + 1
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
-		self.size
+		self.state().size
 	}
 
 	fn get_children(&self) -> Children {
@@ -105,23 +110,23 @@ impl Widget for TestWidget {
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
 		match event {
 			WidgetEvent::OnCursorEnter { cursor } => {
-				println!("Mouse {} Enter for {}", cursor, self.name);
-				self.paint.set_alpha(150);
+				println!("Mouse {} Enter for {}", cursor, self.state().name);
+				self.state_mut().paint.set_alpha(150);
 			}
 			WidgetEvent::OnCursorMove { .. } => {
 				//println!("Mouse Move for {} {}!!!", self.name, self.counter);
 				//self.counter += 1;
 			}
 			WidgetEvent::OnCursorLeave { cursor } => {
-				println!("Mouse {} Leave for {}", cursor, self.name);
-				self.paint.set_alpha(255);
+				println!("Mouse {} Leave for {}", cursor, self.state().name);
+				self.state_mut().paint.set_alpha(255);
 			}
 			WidgetEvent::OnClick { mouse, pos, button } => {
 				println!(
 					"Mouse {} Click {:?} for {} '{}' at {:?}!!!",
-					mouse, button, self.name, self.counter, pos
+					mouse, button, self.state().name, self.state().counter, pos
 				);
-				self.counter += 1;
+				self.state_mut().counter += 1;
 				self.random_color();
 				return Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![0]));
 			}
@@ -134,7 +139,7 @@ impl Widget for TestWidget {
 			} => {
 				println!(
 					"Key '{}' down for {} from {}!",
-					key_physical, self.name, keyboard
+					key_physical, self.state().name, keyboard
 				);
 			}
 			WidgetEvent::OnKeyUp {
@@ -144,20 +149,20 @@ impl Widget for TestWidget {
 			} => {
 				println!(
 					"Key '{}' up for {} from {}!",
-					key_physical, self.name, keyboard
+					key_physical, self.state().name, keyboard
 				);
 			}
 			WidgetEvent::OnText {
 				keyboard,
 				character,
 			} => {
-				println!("Text '{}' for {} from {}!", character, self.name, keyboard);
+				println!("Text '{}' for {} from {}!", character, self.state().name, keyboard);
 			}
 			WidgetEvent::OnFocus { keyboard } => {
-				println!("Focused {} from {}!", self.name, keyboard);
+				println!("Focused {} from {}!", self.state().name, keyboard);
 			}
 			WidgetEvent::OnUnfocus { keyboard } => {
-				println!("Unfocused {} from {}!", self.name, keyboard);
+				println!("Unfocused {} from {}!", self.state().name, keyboard);
 			}
 		}
 		Reply::handled()
@@ -169,11 +174,11 @@ impl Widget for TestWidget {
 }
 
 impl LeafWidget for TestWidget {
-	fn leaf_state(&self) -> &LeafState {
-		&self.leaf
+	fn leaf_state(&self) -> Ref<LeafState> {
+		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> &mut LeafState {
-		&mut self.leaf
+	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

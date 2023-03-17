@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefMut};
 use crate::{
 	paint::{Painter, TextStyle},
 	util::{Geometry, WidgetRef},
@@ -5,14 +6,16 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::{scalar, Point};
-use crate::widgets::{Arrangements, Children};
+use crate::widgets::{Arrangements, Children, WidgetImpl};
 use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
-pub struct TextBlockWidget {
+pub struct TextBlockWidgetState {
 	leaf: LeafState,
 	text: String,
 	text_style: TextStyle,
 }
+
+pub type TextBlockWidget = WidgetImpl<TextBlockWidgetState>;
 
 pub struct TextBlockWidgetBuilder(TextBlockWidget);
 
@@ -21,17 +24,17 @@ pub struct TextBlockWidgetBuilder(TextBlockWidget);
 /// The desired size is the size the text would consume if the text were in one line.
 impl TextBlockWidget {
 	pub fn new() -> TextBlockWidgetBuilder {
-		TextBlockWidgetBuilder(TextBlockWidget {
+		TextBlockWidgetBuilder(TextBlockWidgetState {
 			leaf: Default::default(),
 			text: String::default(),
 			text_style: TextStyle::default(),
-		})
+		}.into())
 	}
 }
 
 impl TextBlockWidgetBuilder {
 	pub fn text(mut self, text: String) -> Self {
-		self.0.text = text;
+		self.0.state_mut().text = text;
 		self
 	}
 
@@ -41,29 +44,31 @@ impl TextBlockWidgetBuilder {
 }
 
 impl Widget for TextBlockWidget {
-	fn widget_state(&self) -> &WidgetState {
-		&self.leaf.widget
+	fn widget_state(&self) -> Ref<WidgetState> {
+		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.leaf.widget
+	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
 	fn paint(&self, _geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
+		let state = self.state();
 		painter.draw_str(
-			&self.text,
+			&state.text,
 			Point::new(0.0, 0.0),
-			&self.text_style.font,
-			&self.text_style.color,
+			&state.text_style.font,
+			&state.text_style.color,
 		);
 		layer
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
-		let (_, rect) = self
+		let state = self.state();
+		let (_, rect) = state
 			.text_style
 			.font
-			.measure_str(&self.text, Some(&self.text_style.color));
+			.measure_str(&state.text, Some(&state.text_style.color));
 		Vector2::new(rect.height(), rect.width())
 	}
 
@@ -85,11 +90,11 @@ impl Widget for TextBlockWidget {
 }
 
 impl LeafWidget for TextBlockWidget {
-	fn leaf_state(&self) -> &LeafState {
-		&self.leaf
+	fn leaf_state(&self) -> Ref<LeafState> {
+		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> &mut LeafState {
-		&mut self.leaf
+	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

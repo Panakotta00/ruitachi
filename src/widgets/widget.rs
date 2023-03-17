@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefMut};
 use crate::{
 	events::{Reply, WidgetEvent},
 	paint::Painter,
@@ -29,7 +30,7 @@ pub type Arrangements = Vec<WidgetArrangement>;
 /// The basic widget state and data every widget in the widget graph has.
 ///
 /// Holds the internal state of the widget and is mostly used by the default implementations of the widget trait.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct WidgetState {
 	pub parent: Option<WidgetRef<dyn Widget>>,
 	pub cached_geometry: Geometry,
@@ -84,12 +85,12 @@ pub trait Widget {
 	/// Returns the widget state of this widget as immutable.
 	///
 	/// You usually dont need this, as it is mostly for internal state handling.
-	fn widget_state(&self) -> &WidgetState;
+	fn widget_state(&self) -> Ref<'_, WidgetState>;
 
 	/// Returns the widget state of this widget as mutable.
 	///
 	/// You usually dont need this, as it is mostly for internal state handling.
-	fn widget_state_mut(&mut self) -> &mut WidgetState;
+	fn widget_state_mut(&mut self) -> RefMut<'_, WidgetState>;
 
 	/// Returns the parent of this widget in the widget tree.
 	/// If the widget is a root element (like a window) or is not yet/anymore attached to a parent
@@ -151,4 +152,30 @@ pub trait Widget {
 	/// # Default Implementation
 	/// Returns the cached geometry from the widget state.
 	fn cached_geometry(&self) -> Geometry;
+}
+
+pub struct WidgetImpl<T>(WidgetRef<T>);
+
+impl<T> WidgetImpl<T> {
+	pub fn state(&self) -> Ref<T> {
+		self.0.get_ref()
+	}
+
+	pub fn state_mut(&self) -> RefMut<T> {
+		self.0.get()
+	}
+
+	pub fn widget_state<K, F>(&self, f: F) -> Ref<K> where F: Fn(&T) -> &K {
+		Ref::map(self.state(), f)
+	}
+
+	pub fn widget_state_mut<K, F>(&mut self, f: F) -> RefMut<K> where F: Fn(&mut T) -> &mut K {
+		RefMut::map(self.state_mut(), f)
+	}
+}
+
+impl<T> From<T> for WidgetImpl<T> {
+	fn from(value: T) -> Self {
+		Self(WidgetRef::new(value))
+	}
 }

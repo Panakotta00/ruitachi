@@ -12,6 +12,7 @@ use std::{
 	ops::{CoerceUnsized, Deref},
 	rc::Rc,
 };
+use std::cell::Ref;
 
 pub type scalar = f32;
 
@@ -77,8 +78,13 @@ impl<T: ?Sized> Debug for WidgetRef<T> {
 
 impl<T: ?Sized> WidgetRef<T> {
 	#[track_caller]
-	pub fn get(&self) -> RefMut<'_, T> {
+	pub fn get(&self) -> RefMut<T> {
 		self.0.deref().borrow_mut()
+	}
+
+	#[track_caller]
+	pub fn get_ref(&self) -> Ref<T> {
+		self.0.deref().borrow()
 	}
 }
 

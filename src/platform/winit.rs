@@ -102,6 +102,7 @@ where
 			}
 			let skia_data = window.skia_data.as_mut().unwrap();
 			skia_data.1.alloc_pixels_flags(&skia_data.0);
+			drop(window);
 		}
 		self.platform_specifics.resize_buffer(window.clone());
 

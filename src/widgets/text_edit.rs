@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefMut};
 use crate::{
 	events::{Reply, WidgetEvent, WidgetFocusChange},
 	paint::Painter,
@@ -6,11 +7,12 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::{scalar, Color, Font, Paint, Point, Rect};
+use skia_safe::wrapper::ValueWrapper;
 use winit::event::VirtualKeyCode;
-use crate::widgets::{Arrangements, Children};
+use crate::widgets::{Arrangements, Children, WidgetImpl};
 use crate::widgets::leaf_widget::{LeafState, LeafWidget};
 
-pub struct TextEditWidget {
+pub struct TextEditWidgetState {
 	leaf: LeafState,
 	text: String,
 	cursor: usize,
@@ -19,6 +21,8 @@ pub struct TextEditWidget {
 	foreground: Paint,
 }
 
+pub type TextEditWidget = WidgetImpl<TextEditWidgetState>;
+
 pub struct TextEditWidgetBuilder(TextEditWidget);
 
 impl TextEditWidget {
@@ -26,24 +30,25 @@ impl TextEditWidget {
 		let mut paint = Paint::default();
 		paint.set_color(Color::WHITE);
 		let font = Font::default();
-		TextEditWidgetBuilder(TextEditWidget {
+		TextEditWidgetBuilder(TextEditWidgetState {
 			leaf: Default::default(),
 			text: "".to_string(),
 			cursor: 0,
 			cursor_byte: 0,
 			foreground_font: font,
 			foreground: paint,
-		})
+		}.into())
 	}
 
 	pub fn set_cursor(&mut self, cursor: usize) {
-		self.cursor = cursor.clamp(0, self.text.len());
-		self.cursor_byte = self
+		let mut state = self.state_mut();
+		state.cursor = cursor.clamp(0, state.text.len());
+		state.cursor_byte = state
 			.text
 			.char_indices()
 			.map(|(i, _)| i)
-			.nth(self.cursor)
-			.unwrap_or(self.text.len());
+			.nth(state.cursor)
+			.unwrap_or(state.text.len());
 	}
 }
 
@@ -54,74 +59,78 @@ impl TextEditWidgetBuilder {
 }
 
 impl Widget for TextEditWidget {
-	fn widget_state(&self) -> &WidgetState {
-		&self.leaf.widget
+	fn widget_state(&self) -> Ref<WidgetState> {
+		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.leaf.widget
+	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
-		let text = if self.text.len() > 0 {
-			self.text.as_str()
+		let state = self.state();
+		let text = if state.text.len() > 0 {
+			state.text.as_str()
 		} else {
 			""
 		};
-		let text_size = self
+		let text_size = state
 			.foreground_font
-			.measure_str(text, Some(&self.foreground));
-		let m = self.foreground_font.metrics();
+			.measure_str(text, Some(&state.foreground));
+		let m = state.foreground_font.metrics();
 		Vector2::new(text_size.1.width(), m.1.bottom - m.1.top)
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
-		let width = if self.text.len() >= self.cursor && self.cursor > 0 {
-			self.foreground_font
-				.measure_str(&self.text[0..self.cursor_byte], Some(&self.foreground))
+		let state = self.state();
+		let width = if state.text.len() >= state.cursor && state.cursor > 0 {
+			state.foreground_font
+				.measure_str(&state.text[0..state.cursor_byte], Some(&state.foreground))
 		} else {
 			(0.0, Rect::default())
 		};
 		let center = geometry.local_size() / 2.0;
-		let font_metric = self.foreground_font.metrics();
+		let font_metric = state.foreground_font.metrics();
 		let line_height = font_metric.1.bottom - font_metric.1.top;
 		let base_line = center.y - line_height / 2.0 - font_metric.1.top;
 		painter.draw_str(
-			&self.text,
+			&state.text,
 			Point::new(0.0, base_line),
-			&self.foreground_font,
-			&self.foreground,
+			&state.foreground_font,
+			&state.foreground,
 		);
 		painter.draw_line(
 			Point::new(width.0, base_line + font_metric.1.top),
 			Point::new(width.0, base_line + font_metric.1.bottom),
-			&self.foreground,
+			&state.foreground,
 		);
 		layer + 1
 	}
 
 	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+		let cursor_byte = self.state().cursor_byte;
+		let cursor = self.state().cursor;
+		let text = self.state().text.clone();
 		match event {
 			WidgetEvent::OnText {
 				keyboard: _,
 				character,
 			} => {
-				println!("{:?}", *character as usize);
 				match *character {
 					'\u{8}' => {
-						if self.cursor > 0 {
-							self.set_cursor(self.cursor - 1);
-							self.text.remove(self.cursor_byte);
+						if cursor > 0 {
+							self.set_cursor(cursor - 1);
+							self.state_mut().text.remove(cursor_byte);
 						}
 					}
 					'\u{7F}' => {
-						if self.cursor_byte < self.text.len() {
-							self.text.remove(self.cursor_byte);
+						if cursor_byte < text.len() {
+							self.state_mut().text.remove(cursor_byte);
 						}
 					}
 					_ => {
-						self.text.insert(self.cursor_byte, *character);
-						self.set_cursor(self.cursor + 1);
+						self.state_mut().text.insert(cursor_byte, *character);
+						self.set_cursor(cursor + 1);
 					}
 				}
 				Reply::handled()
@@ -132,11 +141,11 @@ impl Widget for TextEditWidget {
 				key: Some(key),
 			} => match key {
 				VirtualKeyCode::Left => {
-					self.set_cursor(self.cursor.saturating_sub(1));
+					self.set_cursor(cursor.saturating_sub(1));
 					Reply::handled()
 				}
 				VirtualKeyCode::Right => {
-					self.set_cursor(self.cursor + 1);
+					self.set_cursor(cursor + 1);
 					Reply::handled()
 				}
 				_ => Reply::unhandled(),
@@ -169,11 +178,11 @@ impl Widget for TextEditWidget {
 }
 
 impl LeafWidget for TextEditWidget {
-	fn leaf_state(&self) -> &LeafState {
-		&self.leaf
+	fn leaf_state(&self) -> Ref<LeafState> {
+		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> &mut LeafState {
-		&mut self.leaf
+	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

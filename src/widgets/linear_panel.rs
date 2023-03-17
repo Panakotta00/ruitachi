@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefMut};
 use crate::{
 	paint::Painter,
 	util::{Geometry, WidgetRef},
@@ -5,7 +6,7 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::scalar;
-use crate::widgets::{Arrangements, PanelState};
+use crate::widgets::{Arrangements, PanelState, WidgetImpl};
 
 pub enum LinearPanelDirection {
 	Vertical,
@@ -17,17 +18,19 @@ pub struct LinearPanelSlot {
 	pub growth: Growth,
 }
 
-pub struct LinearPanel {
+pub struct LinearPanelState {
 	panel: PanelState,
 	direction: LinearPanelDirection,
 	children: Vec<LinearPanelSlot>,
 }
 
+pub type LinearPanel = WidgetImpl<LinearPanelState>;
+
 pub struct LinearPanelBuilder(LinearPanel);
 
 impl LinearPanelBuilder {
 	pub fn slot(mut self, widget: WidgetRef<dyn Widget>, growth: Growth) -> Self {
-		self.0.children.push(LinearPanelSlot { widget, growth });
+		self.0.state_mut().children.push(LinearPanelSlot { widget, growth });
 		self
 	}
 
@@ -38,16 +41,16 @@ impl LinearPanelBuilder {
 
 impl LinearPanel {
 	pub fn new(direction: LinearPanelDirection) -> LinearPanelBuilder {
-		LinearPanelBuilder(LinearPanel {
+		LinearPanelBuilder(LinearPanelState {
 			panel: Default::default(),
 			direction,
 			children: vec![],
-		})
+		}.into())
 	}
 
 	#[inline]
 	fn get_dir_val<'a>(&self, vector: &'a Vector2<scalar>) -> &'a scalar {
-		match self.direction {
+		match self.state().direction {
 			LinearPanelDirection::Vertical => &vector.y,
 			LinearPanelDirection::Horizontal => &vector.x,
 		}
@@ -55,7 +58,7 @@ impl LinearPanel {
 
 	#[inline]
 	fn get_dir_val_mut<'a>(&self, vector: &'a mut Vector2<scalar>) -> &'a mut scalar {
-		match self.direction {
+		match self.state().direction {
 			LinearPanelDirection::Vertical => &mut vector.y,
 			LinearPanelDirection::Horizontal => &mut vector.x,
 		}
@@ -63,12 +66,12 @@ impl LinearPanel {
 }
 
 impl Widget for LinearPanel {
-	fn widget_state(&self) -> &WidgetState {
-		&self.panel.widget
+	fn widget_state(&self) -> Ref<WidgetState> {
+		self.widget_state(|v| &v.panel.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> &mut WidgetState {
-		&mut self.panel.widget
+	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+		self.widget_state_mut(|v| &mut v.panel.widget)
 	}
 
 	fn paint(&self, geometry: Geometry, layer: i32, painter: &mut Painter) -> i32 {
@@ -77,9 +80,9 @@ impl Widget for LinearPanel {
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
 		let mut size = Vector2::<scalar>::new(0.0, 0.0);
-		for child in &self.children {
+		for child in &self.state().children {
 			let desire = child.widget.get().get_desired_size();
-			match self.direction {
+			match self.state().direction {
 				LinearPanelDirection::Vertical => {
 					size.x = size.x.max(desire.x);
 					size.y += desire.y;
@@ -94,7 +97,7 @@ impl Widget for LinearPanel {
 	}
 
 	fn get_children(&self) -> Children {
-		self.children.iter().map(|child| child.widget.clone()).collect()
+		self.state().children.iter().map(|child| child.widget.clone()).collect()
 	}
 
 	fn arrange_children(&mut self, geometry: Geometry) {
@@ -111,23 +114,24 @@ impl Widget for LinearPanel {
 }
 
 impl PanelWidget for LinearPanel {
-	fn panel_state(&self) -> &PanelState {
-		&self.panel
+	fn panel_state(&self) -> Ref<PanelState> {
+		self.widget_state(|v| &v.panel)
 	}
 
-	fn panel_state_mut(&mut self) -> &mut PanelState {
-		&mut self.panel
+	fn panel_state_mut(&mut self) -> RefMut<PanelState> {
+		self.widget_state_mut(|v| &mut v.panel)
 	}
 
 	fn rearrange_children(&self, geometry: Geometry) -> Vec<WidgetArrangement> {
+		let state = self.state();
 		let mut list = Vec::new();
-		let _width_step = self.get_dir_val(&geometry.local_size()) / self.children.len() as scalar;
+		let width_step = self.get_dir_val(&geometry.local_size()) / state.children.len() as scalar;
 		let mut fit = Vec::new();
 		let mut value = Vec::new();
 		let mut fill = Vec::new();
 		let mut required_width = 0.0;
 		let mut sum_value = 0.0;
-		for (_i, child) in self.children.iter().enumerate() {
+		for (_i, child) in state.children.iter().enumerate() {
 			match child.growth {
 				Growth::Fill => fill.push(&child.widget),
 				Growth::Fit => fit.push(&child.widget),
@@ -154,7 +158,7 @@ impl PanelWidget for LinearPanel {
 		let sized_fitted = value.len() + fill.len() <= 0;
 
 		let mut last_offset = 0.0;
-		for (_i, child) in self.children.iter().enumerate() {
+		for (_i, child) in state.children.iter().enumerate() {
 			let desired_width = *self.get_dir_val(&child.widget.get().get_desired_size());
 			let mut size = geometry.local_size();
 			let width = if fit.contains(&&child.widget) {

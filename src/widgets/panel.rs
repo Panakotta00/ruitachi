@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefMut};
 use crate::{paint::Painter, util::Geometry, widgets::Widget};
 
 use skia_safe::Vector;
@@ -11,8 +12,8 @@ pub struct PanelState {
 }
 
 pub trait PanelWidget: Widget {
-	fn panel_state(&self) -> &PanelState;
-	fn panel_state_mut(&mut self) -> &mut PanelState;
+	fn panel_state(&self) -> Ref<PanelState>;
+	fn panel_state_mut(&mut self) -> RefMut<PanelState>;
 
 	/// Gets called by the panels implementation of [arrange_children()] to get the list of newly
 	/// arranged widgets.
@@ -46,7 +47,7 @@ pub trait PanelWidget: Widget {
 		for widget in &widgets {
 			widget.widget.get().arrange_children(widget.geometry);
 		}
-		let state = self.panel_state_mut();
+		let mut state = self.panel_state_mut();
 		state.cached_geometry = geometry;
 		state.arranged_children = widgets;
 	}
