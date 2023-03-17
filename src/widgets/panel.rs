@@ -13,7 +13,7 @@ pub struct PanelState {
 
 pub trait PanelWidget: Widget {
 	fn panel_state(&self) -> Ref<PanelState>;
-	fn panel_state_mut(&mut self) -> RefMut<PanelState>;
+	fn panel_state_mut(&self) -> RefMut<PanelState>;
 
 	/// Gets called by the panels implementation of [arrange_children()] to get the list of newly
 	/// arranged widgets.
@@ -42,7 +42,7 @@ pub trait PanelWidget: Widget {
 	///
 	/// # Default Implementation
 	/// Arranges the children and stores the new arrangement as well as the new geometry in the widget state.
-	fn panel_arrange_children(&mut self, geometry: Geometry){
+	fn panel_arrange_children(&self, geometry: Geometry){
 		let widgets = self.rearrange_children(geometry);
 		for widget in &widgets {
 			widget.widget.get().arrange_children(widget.geometry);

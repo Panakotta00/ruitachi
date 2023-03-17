@@ -73,7 +73,7 @@ impl Widget for WindowWidget {
 		self.widget_state(|v| &v.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.widget)
 	}
 
@@ -100,7 +100,7 @@ impl Widget for WindowWidget {
 		}
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		let content = self.state().content.clone();
 		self.state_mut().cached_content = match content {
 			Some(content) => {

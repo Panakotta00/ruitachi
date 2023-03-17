@@ -76,7 +76,7 @@ impl Widget for BoxPanel {
 		self.widget_state(|v| &v.panel.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.panel.widget)
 	}
 
@@ -100,7 +100,7 @@ impl Widget for BoxPanel {
 		Vec::new()
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		self.panel_arrange_children(geometry);
 	}
 
@@ -118,7 +118,7 @@ impl PanelWidget for BoxPanel {
 		self.widget_state(|v| &v.panel)
 	}
 
-	fn panel_state_mut(&mut self) -> RefMut<PanelState> {
+	fn panel_state_mut(&self) -> RefMut<PanelState> {
 		self.widget_state_mut(|v| &mut v.panel)
 	}
 

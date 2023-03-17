@@ -58,11 +58,11 @@ impl ScrollBarWidget {
 		self.state().value
 	}
 
-	pub fn set_value(&mut self, value: f64) {
+	pub fn set_value(&self, value: f64) {
 		self.state_mut().value = value.clamp(0.0, 1.0);
 	}
 
-	pub fn set_range(&mut self, range: Range<f64>) {
+	pub fn set_range(&self, range: Range<f64>) {
 		self.state_mut().range = range;
 		let value = self.state().value;
 		self.set_value(value);
@@ -70,7 +70,7 @@ impl ScrollBarWidget {
 }
 
 impl ScrollBarWidgetBuilder {
-	pub fn direction(mut self, direction: Axis) -> Self {
+	pub fn direction(self, direction: Axis) -> Self {
 		self.0.state_mut().direction = direction;
 		self
 	}
@@ -85,7 +85,7 @@ impl Widget for ScrollBarWidget {
 		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
@@ -118,7 +118,7 @@ impl Widget for ScrollBarWidget {
 		self.leaf_get_children()
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		self.leaf_arrange_children(geometry)
 	}
 
@@ -126,7 +126,7 @@ impl Widget for ScrollBarWidget {
 		self.leaf_get_arranged_children()
 	}
 
-	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+	fn on_event(&self, event: &WidgetEvent) -> Reply {
 		match event {
 			WidgetEvent::OnCursorMove { pos, .. } => {
 				let state = self.state();
@@ -169,7 +169,7 @@ impl LeafWidget for ScrollBarWidget {
 		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+	fn leaf_state_mut(&self) -> RefMut<LeafState> {
 		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

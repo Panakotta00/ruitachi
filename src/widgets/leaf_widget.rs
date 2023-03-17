@@ -12,7 +12,7 @@ pub struct LeafState {
 
 pub trait LeafWidget: Widget {
     fn leaf_state(&self) -> Ref<LeafState>;
-    fn leaf_state_mut(&mut self) -> RefMut<LeafState>;
+    fn leaf_state_mut(&self) -> RefMut<LeafState>;
 
     /// Leaf implementation of [Widget.get_children()]
     ///
@@ -26,7 +26,7 @@ pub trait LeafWidget: Widget {
     ///
     /// # Default Implementation
     /// Does nothing just safes the geometry as cached to leaf state
-    fn leaf_arrange_children(&mut self, geometry: Geometry){
+    fn leaf_arrange_children(&self, geometry: Geometry){
         let mut state = self.leaf_state_mut();
         state.cached_geometry = geometry;
     }

@@ -90,7 +90,7 @@ pub trait Widget {
 	/// Returns the widget state of this widget as mutable.
 	///
 	/// You usually dont need this, as it is mostly for internal state handling.
-	fn widget_state_mut(&mut self) -> RefMut<'_, WidgetState>;
+	fn widget_state_mut(&self) -> RefMut<'_, WidgetState>;
 
 	/// Returns the parent of this widget in the widget tree.
 	/// If the widget is a root element (like a window) or is not yet/anymore attached to a parent
@@ -108,7 +108,7 @@ pub trait Widget {
 	///
 	/// # Default Implementation
 	/// Stores the new parent in the widget state and invalidates the widget fully.
-	fn set_parent(&mut self, parent: Option<WidgetRef<dyn Widget>>) {
+	fn set_parent(&self, parent: Option<WidgetRef<dyn Widget>>) {
 		self.widget_state_mut().parent = parent;
 	}
 
@@ -131,7 +131,7 @@ pub trait Widget {
 	/// This function gets called by the system after the widget's validation state is marked as
 	/// dirty layout and should rearrange all child widgets based on the passed new geometry.
 	/// The arranged children should then be stored in the widgets state.
-	fn arrange_children(&mut self, geometry: Geometry);
+	fn arrange_children(&self, geometry: Geometry);
 
 	/// Retrieves the arranged children of this widget.
 	///
@@ -143,7 +143,8 @@ pub trait Widget {
 	///
 	/// # Default Implementation
 	/// Replies to the event as unhandled.
-	fn on_event(&mut self, _event: &WidgetEvent) -> Reply {
+	fn on_event(&self, event: &WidgetEvent) -> Reply {
+		let _ = event;
 		Reply::unhandled()
 	}
 
@@ -169,7 +170,7 @@ impl<T> WidgetImpl<T> {
 		Ref::map(self.state(), f)
 	}
 
-	pub fn widget_state_mut<K, F>(&mut self, f: F) -> RefMut<K> where F: Fn(&mut T) -> &mut K {
+	pub fn widget_state_mut<K, F>(&self, f: F) -> RefMut<K> where F: Fn(&mut T) -> &mut K {
 		RefMut::map(self.state_mut(), f)
 	}
 }

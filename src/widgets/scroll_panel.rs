@@ -81,7 +81,7 @@ impl Widget for ScrollPanel {
 		self.widget_state(|v| &v.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.widget)
 	}
 
@@ -129,7 +129,7 @@ impl Widget for ScrollPanel {
 		vec![state.content.clone()].into_iter().chain(vec![state.vertical.clone(), state.horizontal.clone()].into_iter().map(|v| v.map(|v| v as WidgetRef<dyn Widget>))).filter_map(|v| v).collect()
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		let state = self.state().clone();
 		self.state_mut().cached_geometry = geometry;
 		let mut horizontal = false;

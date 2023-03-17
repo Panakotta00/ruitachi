@@ -50,7 +50,7 @@ impl TestWidget {
 		}.into())
 	}
 
-	pub fn random_color(&mut self) {
+	pub fn random_color(&self) {
 		let mut state = self.state_mut();
 		let alpha = state.paint.alpha();
 		state.paint.set_color(unsafe {
@@ -81,7 +81,7 @@ impl Widget for TestWidget {
 		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
@@ -99,7 +99,7 @@ impl Widget for TestWidget {
 		self.leaf_get_children()
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		self.leaf_arrange_children(geometry)
 	}
 
@@ -107,7 +107,7 @@ impl Widget for TestWidget {
 		self.leaf_get_arranged_children()
 	}
 
-	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+	fn on_event(&self, event: &WidgetEvent) -> Reply {
 		match event {
 			WidgetEvent::OnCursorEnter { cursor } => {
 				println!("Mouse {} Enter for {}", cursor, self.state().name);
@@ -178,7 +178,7 @@ impl LeafWidget for TestWidget {
 		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+	fn leaf_state_mut(&self) -> RefMut<LeafState> {
 		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

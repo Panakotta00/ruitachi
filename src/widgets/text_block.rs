@@ -48,7 +48,7 @@ impl Widget for TextBlockWidget {
 		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
@@ -76,7 +76,7 @@ impl Widget for TextBlockWidget {
 		self.leaf_get_children()
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		self.leaf_arrange_children(geometry)
 	}
 
@@ -94,7 +94,7 @@ impl LeafWidget for TextBlockWidget {
 		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+	fn leaf_state_mut(&self) -> RefMut<LeafState> {
 		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }

@@ -40,7 +40,7 @@ impl TextEditWidget {
 		}.into())
 	}
 
-	pub fn set_cursor(&mut self, cursor: usize) {
+	pub fn set_cursor(&self, cursor: usize) {
 		let mut state = self.state_mut();
 		state.cursor = cursor.clamp(0, state.text.len());
 		state.cursor_byte = state
@@ -63,7 +63,7 @@ impl Widget for TextEditWidget {
 		self.widget_state(|v| &v.leaf.widget)
 	}
 
-	fn widget_state_mut(&mut self) -> RefMut<WidgetState> {
+	fn widget_state_mut(&self) -> RefMut<WidgetState> {
 		self.widget_state_mut(|v| &mut v.leaf.widget)
 	}
 
@@ -107,7 +107,7 @@ impl Widget for TextEditWidget {
 		layer + 1
 	}
 
-	fn on_event(&mut self, event: &WidgetEvent) -> Reply {
+	fn on_event(&self, event: &WidgetEvent) -> Reply {
 		let cursor_byte = self.state().cursor_byte;
 		let cursor = self.state().cursor;
 		let text = self.state().text.clone();
@@ -164,7 +164,7 @@ impl Widget for TextEditWidget {
 		self.leaf_get_children()
 	}
 
-	fn arrange_children(&mut self, geometry: Geometry) {
+	fn arrange_children(&self, geometry: Geometry) {
 		self.leaf_arrange_children(geometry)
 	}
 
@@ -182,7 +182,7 @@ impl LeafWidget for TextEditWidget {
 		self.widget_state(|v| &v.leaf)
 	}
 
-	fn leaf_state_mut(&mut self) -> RefMut<LeafState> {
+	fn leaf_state_mut(&self) -> RefMut<LeafState> {
 		self.widget_state_mut(|v| &mut v.leaf)
 	}
 }
