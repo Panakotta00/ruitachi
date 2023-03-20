@@ -10,7 +10,7 @@ use skia_safe::scalar;
 use crate::widgets::{Arrangements, Children, WidgetImpl};
 
 pub trait Window: Widget {
-	fn draw(&mut self, canvas: &mut skia_safe::Canvas, size: (scalar, scalar)) {
+	fn draw(&self, canvas: &mut skia_safe::Canvas, size: (scalar, scalar)) {
 		let geometry = Geometry::new(
 			Vector2::new(0.0, 0.0),
 			Vector2::new(size.0, size.1),

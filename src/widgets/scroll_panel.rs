@@ -54,7 +54,24 @@ pub struct ScrollPanelBuilder(ScrollPanel);
 
 impl ScrollPanelBuilder {
 	pub fn build(self) -> WidgetRef<ScrollPanel> {
-		WidgetRef::new(self.0)
+		let widget = WidgetRef::new(self.0);
+		let w = widget.get();
+		let state = w.state();
+		if let Some(vertical) = &state.vertical {
+			let w = widget.clone();
+			vertical.get().state_mut().on_value_changed = Some(Box::new(move |_, v| {
+				w.get().arrange_children(w.get().cached_geometry());
+			}));
+		}
+		if let Some(horizontal) = &state.horizontal {
+			let w = widget.clone();
+			horizontal.get().state_mut().on_value_changed = Some(Box::new(move |_, v| {
+				w.get().arrange_children(w.get().cached_geometry());
+			}));
+		}
+		drop(state);
+		drop(w);
+		widget
 	}
 
 	pub fn direction(mut self, direction: ScrollPanelDirection) -> Self {

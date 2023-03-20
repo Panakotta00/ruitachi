@@ -79,7 +79,7 @@ where
 	fn resize_buffer(&mut self, window: WidgetRef<Window<PS::WindowSpecificData>>) {
 		let size;
 		{
-			let mut window = window.get();
+			let mut window = window.get_mut();
 			size = window.winit_window.inner_size();
 
 			let old_size = window.size;
@@ -112,7 +112,7 @@ where
 			Vector2::new(0.0, 0.0),
 			Vector2::new(1.0, 1.0),
 		);
-		window.get().framework_window.get().deref_mut().arrange_children(geometry);
+		window.get().framework_window.get().deref().arrange_children(geometry);
 	}
 }
 
@@ -354,7 +354,7 @@ where
 
 					let id: WindowId = winit_window.id();
 
-					window.get().set_id(Some(id));
+					window.get_mut().set_id(Some(id));
 
 					let platform_specific_data = self.platform_specifics.add_window(
 						&window,

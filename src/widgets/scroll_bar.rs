@@ -34,6 +34,7 @@ pub struct ScrollBarWidgetState {
 	handle: skia_safe::Paint,
 	tray: skia_safe::Paint,
 	drag_start: Option<(f64, Vector2<scalar>)>,
+	pub on_value_changed: Option<Box<dyn Fn(f64, f64)>>,
 }
 
 pub type ScrollBarWidget = WidgetImpl<ScrollBarWidgetState>;
@@ -51,6 +52,7 @@ impl ScrollBarWidget {
 			handle: skia_safe::Paint::new(Color4f::from(Color::BLUE), None),
 			tray: skia_safe::Paint::new(Color4f::from(Color::RED), None),
 			drag_start: None,
+			on_value_changed: None,
 		}.into())
 	}
 
@@ -59,7 +61,14 @@ impl ScrollBarWidget {
 	}
 
 	pub fn set_value(&self, value: f64) {
-		self.state_mut().value = value.clamp(0.0, 1.0);
+		let old_value = self.state().value;
+		let new_value = value.clamp(0.0, 1.0);
+		self.state_mut().value = new_value;
+		let delegate = self.state_mut().on_value_changed.take();
+		if let Some(delegate) = delegate {
+			delegate(old_value, new_value);
+			self.state_mut().on_value_changed = Some(delegate);
+		}
 	}
 
 	pub fn set_range(&self, range: Range<f64>) {

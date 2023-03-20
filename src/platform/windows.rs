@@ -88,14 +88,14 @@ impl WinitPlatformSpecifics for WindowsWinitSpecifics {
 		&mut self,
 		window: WidgetRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
 	) {
-		window.get().platform_specific_data.resize_buffer();
+		window.get_mut().platform_specific_data.resize_buffer();
 	}
 
 	fn flush_window_buffer(
 		&mut self,
 		window: WidgetRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
 	) {
-		let mut window = window.get();
+		let mut window = window.get_mut();
 		let hwnd = window.platform_specific_data.hwnd;
 		let bmp_info = window.platform_specific_data.bmp_info.unwrap();
 		unsafe {

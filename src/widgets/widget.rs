@@ -159,11 +159,11 @@ pub struct WidgetImpl<T>(WidgetRef<T>);
 
 impl<T> WidgetImpl<T> {
 	pub fn state(&self) -> Ref<T> {
-		self.0.get_ref()
+		self.0.get()
 	}
 
 	pub fn state_mut(&self) -> RefMut<T> {
-		self.0.get()
+		self.0.get_mut()
 	}
 
 	pub fn widget_state<K, F>(&self, f: F) -> Ref<K> where F: Fn(&T) -> &K {
