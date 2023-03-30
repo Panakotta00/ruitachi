@@ -58,16 +58,21 @@ impl ScrollPanelBuilder {
 		let w = widget.get();
 		let state = w.state();
 		if let Some(vertical) = &state.vertical {
+			vertical.get().set_parent(Some(widget.clone()));
 			let w = widget.clone();
 			vertical.get().state_mut().on_value_changed = Some(Box::new(move |_, v| {
 				w.get().arrange_children(w.get().cached_geometry());
 			}));
 		}
 		if let Some(horizontal) = &state.horizontal {
+			horizontal.get().set_parent(Some(widget.clone()));
 			let w = widget.clone();
 			horizontal.get().state_mut().on_value_changed = Some(Box::new(move |_, v| {
 				w.get().arrange_children(w.get().cached_geometry());
 			}));
+		}
+		if let Some(content) = &state.content {
+			content.get().set_parent(Some(widget.clone()));
 		}
 		drop(state);
 		drop(w);
@@ -135,9 +140,10 @@ impl Widget for ScrollPanel {
 	}
 
 	fn get_desired_size(&self) -> Vector2<scalar> {
-		match &self.state().content {
-			Some(content) => content.get().get_desired_size(),
-			None => Vector2::new(0.0, 0.0),
+		match self.state().content.as_ref().map(|content| (self.state().direction, content.get().get_desired_size())) {
+			Some((ScrollPanelDirection::Horizontal, size)) => Vector2::new(0.0, size.x),
+			Some((ScrollPanelDirection::Vertical, size)) => Vector2::new(0.0, size.x),
+			_ => Vector2::new(0.0, 0.0),
 		}
 	}
 

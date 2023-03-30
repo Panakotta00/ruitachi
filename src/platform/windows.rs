@@ -7,6 +7,7 @@ use windows::Win32::Graphics::Gdi::{
 	PAINTSTRUCT,
 };
 use winit::event_loop::EventLoop;
+use crate::util::SharedRef;
 
 pub type Context = crate::platform::winit::Context<WindowsWinitSpecifics>;
 
@@ -80,20 +81,20 @@ impl WinitPlatformSpecifics for WindowsWinitSpecifics {
 
 	fn remove_window(
 		&mut self,
-		_window: WidgetRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
+		_window: SharedRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
 	) {
 	}
 
 	fn resize_buffer(
 		&mut self,
-		window: WidgetRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
+		window: SharedRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
 	) {
 		window.get_mut().platform_specific_data.resize_buffer();
 	}
 
 	fn flush_window_buffer(
 		&mut self,
-		window: WidgetRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
+		window: SharedRef<crate::platform::winit::Window<Self::WindowSpecificData>>,
 	) {
 		let mut window = window.get_mut();
 		let hwnd = window.platform_specific_data.hwnd;

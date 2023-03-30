@@ -321,6 +321,16 @@ where
 								event_context.handle_cursor_leave(0);
 								window.get().winit_window.request_redraw();
 							}
+						},
+						Event::WindowEvent {
+							window_id,
+							event: WindowEvent::CursorEntered { device_id: _ }
+						} => {
+							if let Some(window) = self.window_by_id(window_id) {
+								// TODO: Add multi device support
+								event_context.handle_cursor_enter(0);
+								window.get().winit_window.request_redraw();
+							}
 						}
 						Event::RedrawEventsCleared => {
 							/*self.wayland_event_queue

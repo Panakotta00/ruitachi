@@ -4,10 +4,7 @@
 
 extern crate core;
 
-use std::cell::RefCell;
-use std::rc::{Rc, Weak};
 use cgmath::Vector2;
-
 use ruitachi::application::{Application, GUIApplication};
 
 use ruitachi::{

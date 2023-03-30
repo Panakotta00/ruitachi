@@ -573,4 +573,16 @@ impl EventContext {
 			}
 		}
 	}
+
+	pub fn handle_cursor_enter(&mut self, cursor_index: usize) {
+		let cursor_ctx = self.try_get_cursor_context(cursor_index);
+		if let Some(cursor_ctx) = cursor_ctx {
+			let cursor_enter_event = WidgetEvent::OnCursorEnter {
+				cursor: cursor_index,
+			};
+			for widget in &cursor_ctx.last_over_widgets {
+				widget.get().on_event(&cursor_enter_event);
+			}
+		}
+	}
 }
