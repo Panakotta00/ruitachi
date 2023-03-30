@@ -1,4 +1,4 @@
-use crate::util::WidgetRef;
+use crate::util::{SharedRef, WidgetRef};
 
 use std::{cell::RefMut, fs::File, os::unix::prelude::AsRawFd};
 use wayland_client::{
@@ -119,8 +119,8 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 		specific_data
 	}
 
-	fn remove_window(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
-		let data = &mut window.get().platform_specific_data;
+	fn remove_window(&mut self, window: SharedRef<Window<Self::WindowSpecificData>>) {
+		let data = &mut window.get_mut().platform_specific_data;
 		data.buffer_map = None;
 		if let Some(buf) = &data.wayland_buffer {
 			buf.destroy();
@@ -135,8 +135,8 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 			.unwrap();
 	}
 
-	fn resize_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
-		let window = window.get();
+	fn resize_buffer(&mut self, window: SharedRef<Window<Self::WindowSpecificData>>) {
+		let mut window = window.get_mut();
 		let (mut data, mut window) = RefMut::map_split(window, |w| {
 			(&mut w.platform_specific_data, &mut w.winit_window)
 		});
@@ -144,13 +144,13 @@ impl WinitPlatformSpecifics for WaylandWinitSpecifics {
 		data.resize_buffer(&mut window);
 	}
 
-	fn flush_window_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>) {
-		let (mut specific_data, mut winit_window) = RefMut::map_split(window.get(), |w| {
+	fn flush_window_buffer(&mut self, window: SharedRef<Window<Self::WindowSpecificData>>) {
+		let (mut specific_data, mut winit_window) = RefMut::map_split(window.get_mut(), |w| {
 			(&mut w.platform_specific_data, &mut w.winit_window)
 		});
 		specific_data.resize_buffer(&mut winit_window);
 		drop((specific_data, winit_window));
-		let window = window.get();
+		let window = window.get_mut();
 		let size = window.size;
 		let (skia_data, mut specific_data) = RefMut::map_split(window, |w| {
 			(&mut w.skia_data, &mut w.platform_specific_data)

@@ -23,9 +23,9 @@ pub trait WinitPlatformSpecifics {
 		winit_window: &mut winit::window::Window,
 		event_loop: &mut EventLoop<()>,
 	) -> Self::WindowSpecificData;
-	fn remove_window(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
-	fn resize_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
-	fn flush_window_buffer(&mut self, window: WidgetRef<Window<Self::WindowSpecificData>>);
+	fn remove_window(&mut self, window: SharedRef<Window<Self::WindowSpecificData>>);
+	fn resize_buffer(&mut self, window: SharedRef<Window<Self::WindowSpecificData>>);
+	fn flush_window_buffer(&mut self, window: SharedRef<Window<Self::WindowSpecificData>>);
 }
 
 /// Holds information specific to a single window in the context of winit.
@@ -48,7 +48,7 @@ pub struct Window<T> {
 /// * `PS` - Type of the platform specific implementations needed
 pub struct Context<PS: WinitPlatformSpecifics> {
 	platform_specifics: PS,
-	windows: HashMap<WindowId, WidgetRef<Window<PS::WindowSpecificData>>>,
+	windows: HashMap<WindowId, SharedRef<Window<PS::WindowSpecificData>>>,
 	pub event_loop: Option<EventLoop<()>>,
 	deferred_widget_creating: Vec<WidgetRef<dyn crate::widgets::Window>>,
 
@@ -72,11 +72,11 @@ where
 		}
 	}
 
-	fn window_by_id(&mut self, id: WindowId) -> Option<WidgetRef<Window<PS::WindowSpecificData>>> {
+	fn window_by_id(&mut self, id: WindowId) -> Option<SharedRef<Window<PS::WindowSpecificData>>> {
 		self.windows.get(&id).map(|w| w.clone())
 	}
 
-	fn resize_buffer(&mut self, window: WidgetRef<Window<PS::WindowSpecificData>>) {
+	fn resize_buffer(&mut self, window: SharedRef<Window<PS::WindowSpecificData>>) {
 		let size;
 		{
 			let mut window = window.get_mut();
@@ -362,7 +362,7 @@ where
 						self.event_loop.as_mut().unwrap(),
 					);
 
-					let mut window = WidgetRef::new(Window {
+					let mut window = SharedRef::new(Window {
 						winit_window,
 						framework_window: window.clone(),
 						platform_specific_data,

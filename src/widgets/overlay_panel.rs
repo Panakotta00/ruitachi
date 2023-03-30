@@ -20,25 +20,28 @@ pub struct OverlayPanelState {
 
 pub type OverlayPanel = WidgetImpl<OverlayPanelState>;
 
-pub struct OverlayPanelBuilder(OverlayPanel);
+pub struct OverlayPanelBuilder(WidgetRef<OverlayPanel>);
 
 impl OverlayPanelBuilder {
 	pub fn slot(mut self, widget: WidgetRef<dyn Widget>) -> Self {
-		self.0.state_mut().children.push(OverlayPanelSlot { widget });
+		self.0.get().state_mut().children.push(OverlayPanelSlot { widget });
 		self
 	}
 
 	pub fn build(self) -> WidgetRef<OverlayPanel> {
-		WidgetRef::new(self.0)
+		for child in &self.0.get().state().children {
+			child.widget.get().set_parent(Some(self.0.clone()));
+		}
+		self.0
 	}
 }
 
 impl OverlayPanel {
 	pub fn new() -> OverlayPanelBuilder {
-		OverlayPanelBuilder(OverlayPanelState {
+		OverlayPanelBuilder(WidgetRef::new(OverlayPanelState {
 			panel: Default::default(),
 			children: vec![],
-		}.into())
+		}.into()))
 	}
 }
 

@@ -1,4 +1,5 @@
 use std::cell::{Ref, RefMut};
+use std::rc::Weak;
 use crate::{
 	events::{Reply, WidgetEvent},
 	paint::Painter,
@@ -7,6 +8,7 @@ use crate::{
 use cgmath::Vector2;
 
 use skia_safe::scalar;
+use crate::util::{WidgetRefFromSelf, WidgetRefFromSelfSpecific, SharedRef, WidgetWeak};
 
 /// Holds a widget and its respective geometry it got when last arranged.
 #[derive(Clone)]
@@ -81,7 +83,7 @@ pub struct WidgetState {
 /// as its almost certain the parent it self is already dereferenced as mutable and you would cause a panic.
 /// The trait provides a default implementation that simply stores the passed parent in the
 /// widget state, which is then also returned by the [get_parent()] default implementation.
-pub trait Widget {
+pub trait Widget: WidgetRefFromSelf {
 	/// Returns the widget state of this widget as immutable.
 	///
 	/// You usually dont need this, as it is mostly for internal state handling.
@@ -148,22 +150,25 @@ pub trait Widget {
 		Reply::unhandled()
 	}
 
-	/// Returns the geometry to which the children were arranged to last and that is used for painting.
+	/// Returns the geometry to which the children were arranged to last and that i5s used for painting.
 	///
 	/// # Default Implementation
 	/// Returns the cached geometry from the widget state.
 	fn cached_geometry(&self) -> Geometry;
 }
 
-pub struct WidgetImpl<T>(WidgetRef<T>);
+pub struct WidgetImpl<T> where T: 'static, Self: Widget {
+	state: SharedRef<T>,
+	self_ref: WidgetWeak<Self>,
+}
 
-impl<T> WidgetImpl<T> {
+impl<T> WidgetImpl<T> where Self: Widget {
 	pub fn state(&self) -> Ref<T> {
-		self.0.get()
+		self.state.get()
 	}
 
 	pub fn state_mut(&self) -> RefMut<T> {
-		self.0.get_mut()
+		self.state.get_mut()
 	}
 
 	pub fn widget_state<K, F>(&self, f: F) -> Ref<K> where F: Fn(&T) -> &K {
@@ -175,8 +180,27 @@ impl<T> WidgetImpl<T> {
 	}
 }
 
-impl<T> From<T> for WidgetImpl<T> {
+impl<T> From<T> for WidgetImpl<T> where Self: Widget {
 	fn from(value: T) -> Self {
-		Self(WidgetRef::new(value))
+		Self{
+			state: SharedRef::new(value),
+			self_ref: WidgetWeak::default(),
+		}
+	}
+}
+
+impl<T> WidgetRefFromSelf for WidgetImpl<T> where Self: Widget {
+	fn widget_weak(&self) -> WidgetWeak<dyn Widget> {
+		self.self_ref.clone()
+	}
+}
+
+impl<T> WidgetRefFromSelfSpecific for WidgetImpl<T> where Self: Widget {
+	fn set_widget_ref(&mut self, widget: &WidgetRef<Self>) {
+		self.self_ref = widget.downgrade();
+	}
+
+	fn self_weak(&self) -> WidgetWeak<Self> {
+		self.self_ref.clone()
 	}
 }

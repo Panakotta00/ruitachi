@@ -9,6 +9,7 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::scalar;
+use crate::util::{WidgetRefFromSelf};
 use crate::widgets::{Arrangements, PanelState};
 
 pub struct BoxPanelState {
@@ -22,52 +23,55 @@ pub struct BoxPanelState {
 
 pub type BoxPanel = crate::widgets::WidgetImpl<BoxPanelState>;
 
-pub struct BoxPanelBuilder(BoxPanel);
+pub struct BoxPanelBuilder(WidgetRef<BoxPanel>);
 
 impl BoxPanelBuilder {
 	pub fn v_align(mut self, v_align: VerticalAlignment) -> Self {
-		self.0.state_mut().v_align = v_align;
+		self.0.get().state_mut().v_align = v_align;
 		self
 	}
 
 	pub fn h_align(mut self, h_align: HorizontalAlignment) -> Self {
-		self.0.state_mut().h_align = h_align;
+		self.0.get().state_mut().h_align = h_align;
 		self
 	}
 
 	pub fn override_x(mut self, size_x: scalar) -> Self {
-		self.0.state_mut().override_x = Some(size_x);
+		self.0.get().state_mut().override_x = Some(size_x);
 		self
 	}
 
 	pub fn override_y(mut self, size_y: scalar) -> Self {
-		self.0.state_mut().override_y = Some(size_y);
+		self.0.get().state_mut().override_y = Some(size_y);
 		self
 	}
 
 	pub fn override_size(mut self, size: Vector2<scalar>) -> Self {
-		let mut state = self.0.state_mut();
+		let mut widget = self.0.get();
+		let mut state = widget.state_mut();
 		state.override_x = Some(size.x);
 		state.override_y = Some(size.y);
 		drop(state);
+		drop(widget);
 		self
 	}
 
 	pub fn build(self) -> WidgetRef<BoxPanel> {
-		WidgetRef::new(self.0)
+		self.0.get().state_mut().child.get().set_parent(Some(self.0.clone()));
+		self.0
 	}
 }
 
 impl BoxPanel {
 	pub fn new(child: WidgetRef<dyn Widget>) -> BoxPanelBuilder {
-		BoxPanelBuilder(BoxPanelState {
+		BoxPanelBuilder(WidgetRef::new(BoxPanelState {
 			panel: Default::default(),
 			child,
 			v_align: VerticalAlignment::Top,
 			h_align: HorizontalAlignment::Left,
 			override_x: None,
 			override_y: None,
-		}.into())
+		}.into()))
 	}
 }
 

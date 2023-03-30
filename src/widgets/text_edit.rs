@@ -19,6 +19,7 @@ pub struct TextEditWidgetState {
 	cursor_byte: usize,
 	foreground_font: Font,
 	foreground: Paint,
+	on_text_changed: Option<Box<dyn Fn(&str, &str)>>,
 }
 
 pub type TextEditWidget = WidgetImpl<TextEditWidgetState>;
@@ -37,6 +38,7 @@ impl TextEditWidget {
 			cursor_byte: 0,
 			foreground_font: font,
 			foreground: paint,
+			on_text_changed: None,
 		}.into())
 	}
 
@@ -50,9 +52,22 @@ impl TextEditWidget {
 			.nth(state.cursor)
 			.unwrap_or(state.text.len());
 	}
+
+	pub fn set_text(&self, text: String) {
+		let old_text = self.state().text.clone();
+		if old_text != text {
+			self.state().on_text_changed.as_ref().inspect(|d| d(&text, &old_text));
+			self.state_mut().text = text;
+			self.get_parent().inspect(|p| p.get().arrange_children(p.get().cached_geometry()));
+		}
+	}
 }
 
 impl TextEditWidgetBuilder {
+	pub fn on_text_changed<F>(mut self, event: F) where F: Fn(&str, &str) + 'static {
+		self.0.state_mut().on_text_changed = Some(Box::new(event));
+	}
+
 	pub fn build(self) -> WidgetRef<TextEditWidget> {
 		WidgetRef::new(self.0)
 	}
@@ -133,6 +148,7 @@ impl Widget for TextEditWidget {
 						self.set_cursor(cursor + 1);
 					}
 				}
+				self.get_parent().unwrap().get().arrange_children(self.get_parent().unwrap().get().cached_geometry());
 				Reply::handled()
 			}
 			WidgetEvent::OnKeyDown {

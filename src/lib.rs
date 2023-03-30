@@ -2,6 +2,7 @@
 #![feature(unsize)]
 #![feature(trait_upcasting)]
 #![feature(arbitrary_self_types)]
+#![feature(result_option_inspect)]
 //#![warn(missing_docs)]
 //#![deny(missing_doc_code_examples)]
 

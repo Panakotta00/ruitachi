@@ -6,6 +6,7 @@ use crate::{
 };
 use cgmath::Vector2;
 use skia_safe::scalar;
+use crate::util::WidgetRefFromSelf;
 use crate::widgets::{Arrangements, PanelState, WidgetImpl};
 
 pub enum LinearPanelDirection {
@@ -26,26 +27,29 @@ pub struct LinearPanelState {
 
 pub type LinearPanel = WidgetImpl<LinearPanelState>;
 
-pub struct LinearPanelBuilder(LinearPanel);
+pub struct LinearPanelBuilder(WidgetRef<LinearPanel>);
 
 impl LinearPanelBuilder {
 	pub fn slot(mut self, widget: WidgetRef<dyn Widget>, growth: Growth) -> Self {
-		self.0.state_mut().children.push(LinearPanelSlot { widget, growth });
+		self.0.get().state_mut().children.push(LinearPanelSlot { widget, growth });
 		self
 	}
 
 	pub fn build(self) -> WidgetRef<LinearPanel> {
-		WidgetRef::new(self.0)
+		for widget in &self.0.get().state().children {
+			widget.widget.get().set_parent(Some(self.0.clone()));
+		}
+		self.0
 	}
 }
 
 impl LinearPanel {
 	pub fn new(direction: LinearPanelDirection) -> LinearPanelBuilder {
-		LinearPanelBuilder(LinearPanelState {
+		LinearPanelBuilder(WidgetRef::new(LinearPanelState {
 			panel: Default::default(),
 			direction,
 			children: vec![],
-		}.into())
+		}.into()))
 	}
 
 	#[inline]

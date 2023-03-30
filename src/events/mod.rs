@@ -206,7 +206,7 @@ pub fn get_widget_path_under_position(
 		}
 		path.children.push(get_widget_path_under_position(
 			child_arrangement.geometry,
-			child_arrangement.widget.clone(),
+			child_arrangement.widget.clone().into(),
 			pos,
 		));
 	}
