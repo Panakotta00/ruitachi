@@ -1,49 +1,62 @@
+use std::cell::{OnceCell, Ref, RefCell, RefMut};
+use std::ops::Deref;
+use std::sync::{LazyLock, Mutex};
+use std::thread::ThreadId;
+use send_wrapper::SendWrapper;
 use crate::{
 	events::EventContext,
 	platform::{common::PlatformContext, Context},
 };
+use crate::platform::common::PlatformMessage;
+use crate::util::WidgetRef;
+use crate::widgets::Window;
 
 pub struct GUIApplication {
-	event: EventContext,
-	platform: Context,
+	event: RefCell<EventContext>,
+	platform: RefCell<Context>,
 }
+
+static mut INSTANCE: Option<SendWrapper<GUIApplication>> = None;
 
 impl GUIApplication {
-	pub fn new() -> Self {
-		Self {
-			event: EventContext::new(),
-			platform: crate::platform::create_platform(),
+	/// Returns the instance of the GUI Application.
+	/// This instance can only be created once at first call and only for a single thread.
+	/// Consecutive calls within the same thread are possible,
+	/// but if it already got created in one thread and you call it from another, it panics.
+	pub fn get() -> &'static GUIApplication {
+		unsafe {
+			INSTANCE.get_or_insert_with(|| SendWrapper::new(GUIApplication {
+				event: RefCell::new(EventContext::new()),
+				platform: RefCell::new(crate::platform::create_platform()),
+			}))
 		}
 	}
-}
 
-pub trait Application {
-	fn event_context(&self) -> &EventContext;
-	fn event_context_mut(&mut self) -> &mut EventContext;
-	fn platform_context(&self) -> &dyn PlatformContext;
-	fn platform_context_mut(&mut self) -> &mut dyn PlatformContext;
-
-	fn run(&mut self);
-}
-
-impl Application for GUIApplication {
-	fn event_context(&self) -> &EventContext {
-		&self.event
+	pub fn add_window(&self, window: WidgetRef<dyn Window>) {
+		self.platform.borrow().message(PlatformMessage::NewWindow(window));
 	}
 
-	fn event_context_mut(&mut self) -> &mut EventContext {
-		&mut self.event
+	pub fn remove_window(&self, window: WidgetRef<dyn Window>) {
+		self.platform.borrow().message(PlatformMessage::RemoveWindow(window));
 	}
 
-	fn platform_context(&self) -> &dyn PlatformContext {
-		&self.platform
+	pub fn event_context(&self) -> Ref<EventContext> {
+		self.event.borrow()
 	}
 
-	fn platform_context_mut(&mut self) -> &mut dyn PlatformContext {
-		&mut self.platform
+	pub fn event_context_mut(&self) -> RefMut<EventContext> {
+		self.event.borrow_mut()
 	}
 
-	fn run(&mut self) {
-		self.platform.run(&mut self.event);
+	pub fn platform_context(&self) -> Ref<dyn PlatformContext> {
+		self.platform.borrow()
+	}
+
+	pub fn platform_context_mut(&self) -> RefMut<dyn PlatformContext> {
+		self.platform.borrow_mut()
+	}
+
+	pub fn run(&self) {
+		PlatformContext::run(&self.platform,&self.event);
 	}
 }

@@ -17,6 +17,7 @@ pub struct TestWidgetState {
 	size: Vector2<scalar>,
 	name: String,
 	counter: i32,
+	on_click: Option<Box<dyn Fn()>>,
 }
 
 pub type TestWidget = WidgetImpl<TestWidgetState>;
@@ -47,6 +48,7 @@ impl TestWidget {
 			size: Vector2::new(10.0, 10.0),
 			name: "Unnamed".into(),
 			counter: 0,
+			on_click: None,
 		}.into())
 	}
 
@@ -68,6 +70,11 @@ impl TestWidgetBuilder {
 
 	pub fn name(mut self, name: &str) -> Self {
 		self.0.state_mut().name = name.into();
+		self
+	}
+
+	pub fn on_click<F>(mut self, func: F) -> Self where F: Fn() + 'static {
+		self.0.state_mut().on_click = Some(Box::new(func));
 		self
 	}
 
@@ -128,6 +135,7 @@ impl Widget for TestWidget {
 				);
 				self.state_mut().counter += 1;
 				self.random_color();
+				self.state().on_click.as_ref().inspect(|f| f());
 				return Reply::handled().take_focus(WidgetFocusChange::KeyboardList(vec![0]));
 			}
 			WidgetEvent::OnMouseButtonDown { .. } => {}

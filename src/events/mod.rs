@@ -12,6 +12,7 @@ pub use events::*;
 use skia_safe::scalar;
 use std::collections::{HashMap, HashSet};
 use winit::event::VirtualKeyCode;
+use crate::application::{GUIApplication};
 
 pub enum WidgetFocusChange {
 	KeyboardList(Vec<usize>),
@@ -311,7 +312,6 @@ impl EventContext {
 		&mut self,
 		widget: &WidgetRef<dyn Widget>,
 		reply: &Reply,
-		platform: &mut dyn PlatformContext,
 	) {
 		if reply.handled {
 			if let Some(change) = &reply.take_focus {
@@ -357,7 +357,7 @@ impl EventContext {
 				let capture = &mut cursor_ctx.captured_by_widget;
 				if capture.is_none() {
 					*capture = Some(widget.clone());
-					platform.set_capture_cursor(cursor, true);
+					GUIApplication::get().platform_context_mut().set_capture_cursor(cursor, true);
 				}
 			}
 			if let Some(cursor) = reply.release_cursor {
@@ -365,7 +365,7 @@ impl EventContext {
 				if let Some(captured_widget) = capture {
 					if captured_widget == widget {
 						*capture = None;
-						platform.set_capture_cursor(cursor, false);
+						GUIApplication::get().platform_context_mut().set_capture_cursor(cursor, false);
 					}
 				}
 			}
@@ -412,7 +412,6 @@ impl EventContext {
 
 	pub fn handle_mouse_button_down(
 		&mut self,
-		platform: &mut dyn PlatformContext,
 		widget_path: &WidgetPath,
 		mouse_index: usize,
 		button: MouseButton,
@@ -428,13 +427,13 @@ impl EventContext {
 
 		if let Some(captured_cursor) = cursor_ctx.captured_by_widget.clone() {
 			let reply = captured_cursor.get().on_event(&down_event);
-			self.process_reply(&captured_cursor, &reply, platform);
+			self.process_reply(&captured_cursor, &reply);
 		} else {
 			let mut down_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
 			for widget in widget_path.bubble() {
 				down_widgets.insert(widget.clone());
 				let down_reply = widget.get().on_event(&down_event);
-				self.process_reply(widget, &down_reply, platform);
+				self.process_reply(widget, &down_reply);
 				if down_reply.handled {
 					break;
 				}
@@ -448,7 +447,6 @@ impl EventContext {
 
 	pub fn handle_mouse_button_up(
 		&mut self,
-		platform: &mut dyn PlatformContext,
 		widget_path: &WidgetPath,
 		cursor_index: usize,
 		button: MouseButton,
@@ -468,7 +466,7 @@ impl EventContext {
 		let cursor_ctx = self.get_cursor_context(cursor_index);
 		if let Some(captured_cursor) = cursor_ctx.captured_by_widget.clone() {
 			let reply = captured_cursor.get().on_event(&up_event);
-			self.process_reply(&captured_cursor, &reply, platform);
+			self.process_reply(&captured_cursor, &reply);
 		} else {
 			let mut handled_click = None;
 			let mut up_widgets: HashSet<WidgetRef<dyn Widget>> = HashSet::new();
@@ -487,7 +485,7 @@ impl EventContext {
 				if let Some(click_reply) = reply {
 					if click_reply.handled {
 						handled_click = Some(widget.clone());
-						self.process_reply(widget, &click_reply, platform);
+						self.process_reply(widget, &click_reply);
 					}
 				}
 

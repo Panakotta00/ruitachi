@@ -5,7 +5,7 @@
 extern crate core;
 
 use cgmath::Vector2;
-use ruitachi::application::{Application, GUIApplication};
+use ruitachi::application::{GUIApplication};
 
 use ruitachi::{
 	platform::common::PlatformContext,
@@ -16,11 +16,13 @@ use ruitachi::{
 		TextBlockWidget, TextEditWidget, VerticalAlignment, Window, WindowWidget,
 	},
 };
+use ruitachi::util::SharedRef;
 
 fn main() {
-	let mut app = GUIApplication::new();
-
-	let test1 = TestWidget::new().build();
+	let test1 = TestWidget::new().on_click(move || {
+		let window: WidgetRef<dyn Window> = WindowWidget::new(None).build();
+		GUIApplication::get().add_window(window);
+	}).build();
 	let test2 = TestWidget::new().name("Test2").build();
 	let test21 = TestWidget::new()
 		.size(Vector2::new(20.0, 20.0))
@@ -138,8 +140,8 @@ fn main() {
 		.build();
 	let window_widget2: WidgetRef<dyn Window> = WindowWidget::new(Some(window2_box)).build();
 
-	app.platform_context_mut().add_window(&window_widget1);
-	app.platform_context_mut().add_window(&window_widget2);
+	GUIApplication::get().add_window(window_widget1);
+	GUIApplication::get().add_window(window_widget2);
 
-	app.run();
+	GUIApplication::get().run();
 }

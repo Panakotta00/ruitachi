@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::{events, events::EventContext, platform::common::PlatformContext, util::*};
 use cgmath::Vector2;
 
@@ -9,6 +10,8 @@ use winit::{
 	event_loop::{ControlFlow, EventLoop},
 	platform::run_return::EventLoopExtRunReturn,
 };
+use crate::application::GUIApplication;
+use crate::platform::common::PlatformMessage;
 
 pub type WindowId = winit::window::WindowId;
 
@@ -49,8 +52,7 @@ pub struct Window<T> {
 pub struct Context<PS: WinitPlatformSpecifics> {
 	platform_specifics: PS,
 	windows: HashMap<WindowId, SharedRef<Window<PS::WindowSpecificData>>>,
-	pub event_loop: Option<EventLoop<()>>,
-	deferred_widget_creating: Vec<WidgetRef<dyn crate::widgets::Window>>,
+	deferred_messages: RefCell<Vec<PlatformMessage>>,
 
 	last_cursor_pos: Vector2<scalar>,
 }
@@ -61,18 +63,15 @@ where
 {
 	/// Creates a new winit platform context with the given platform specifics
 	pub fn new(platform_specifics: PS) -> Context<PS> {
-		let event_loop = EventLoop::new();
-
 		Self {
 			platform_specifics,
 			windows: Default::default(),
-			event_loop: Some(event_loop),
-			deferred_widget_creating: Default::default(),
+			deferred_messages: Default::default(),
 			last_cursor_pos: Vector2::new(0.0, 0.0),
 		}
 	}
 
-	fn window_by_id(&mut self, id: WindowId) -> Option<SharedRef<Window<PS::WindowSpecificData>>> {
+	fn window_by_id(&self, id: WindowId) -> Option<SharedRef<Window<PS::WindowSpecificData>>> {
 		self.windows.get(&id).map(|w| w.clone())
 	}
 
@@ -120,90 +119,101 @@ impl<PS> PlatformContext for Context<PS>
 where
 	PS: WinitPlatformSpecifics,
 {
-	fn add_window(&mut self, window: &WidgetRef<dyn crate::widgets::Window>) {
-		self.deferred_widget_creating.push(window.clone());
+	fn message(&self, message: PlatformMessage) {
+		match message {
+			_ => self.deferred_messages.borrow_mut().push(message),
+		}
 	}
 
-	fn remove_window(&mut self, window: &WidgetRef<dyn crate::widgets::Window>) -> bool {
-		let id = match window.get().id() {
-			Some(id) => id,
-			None => return false,
-		};
-		let window = match self.windows.remove(&id) {
-			Some(w) => w,
-			None => return false,
-		};
+	fn run(this: &RefCell<Self>, event_context: &RefCell<EventContext>) {
+		let mut event_loop = EventLoop::new();
+		while {this.borrow().windows.len() > 0 || this.borrow().deferred_messages.borrow().len() > 0} {
+			event_loop.run_return(|event, _, control_flow| {
+				*control_flow = ControlFlow::Wait;
 
-		self.platform_specifics.remove_window(window);
-
-		true
-	}
-
-	fn run(&mut self, event_context: &mut EventContext) {
-		loop {
-			let mut event_loop = self.event_loop.take();
-			let mut loop_braked = false;
-			event_loop
-				.as_mut()
-				.unwrap()
-				.run_return(|event, _, control_flow| {
-					*control_flow = ControlFlow::Wait;
-
-					match event {
-						Event::WindowEvent {
-							event: WindowEvent::CloseRequested,
-							window_id,
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								let framework_window = window.get().framework_window.clone();
-								self.remove_window(&framework_window);
-								if self.windows.len() < 1 {
-									*control_flow = ControlFlow::Exit;
-								}
-							}
+				match event {
+					Event::WindowEvent {
+						event: WindowEvent::CloseRequested,
+						window_id,
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							GUIApplication::get().remove_window(window.get().framework_window.clone());
 						}
-						Event::WindowEvent {
-							event: WindowEvent::Resized(_size),
-							window_id,
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								window.get().winit_window.request_redraw();
-							}
+					}
+					Event::WindowEvent {
+						event: WindowEvent::Resized(_size),
+						window_id,
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							window.get().winit_window.request_redraw();
 						}
-						Event::RedrawRequested(window_id) => {
-							if let Some(window) = self.window_by_id(window_id) {
-								self.resize_buffer(window.clone());
+					}
+					Event::RedrawRequested(window_id) => {
+						let window = this.borrow().window_by_id(window_id);
+						if let Some(window) = window {
+							this.borrow_mut().resize_buffer(window.clone());
 
-								let size = window.get().winit_window.inner_size();
-								let window_ref = window.get();
+							let size = window.get().winit_window.inner_size();
+							let window_ref = window.get();
 
-								let mut canvas = skia_safe::Canvas::from_bitmap(
-									&window_ref.skia_data.as_ref().unwrap().1,
-									None,
-								);
+							let mut canvas = skia_safe::Canvas::from_bitmap(
+								&window_ref.skia_data.as_ref().unwrap().1,
+								None,
+							);
 
-								window_ref.framework_window.get().draw(
-									&mut canvas,
-									(size.width as scalar, size.height as scalar),
-								);
+							window_ref.framework_window.get().draw(
+								&mut canvas,
+								(size.width as scalar, size.height as scalar),
+							);
 
-								drop(window_ref);
+							drop(window_ref);
 
-								self.platform_specifics.flush_window_buffer(window.clone());
-							}
+							this.borrow_mut().platform_specifics.flush_window_buffer(window.clone());
 						}
-						Event::WindowEvent {
-							event:
-								WindowEvent::CursorMoved {
-									device_id: _,
-									position,
-									modifiers: _,
-								},
-							window_id,
-						} => {
-							let pos = Vector2::new(position.x as f32, position.y as f32);
-							self.last_cursor_pos = pos;
-							if let Some(window) = self.window_by_id(window_id) {
+					}
+					Event::WindowEvent {
+						event:
+							WindowEvent::CursorMoved {
+								device_id: _,
+								position,
+								modifiers: _,
+							},
+						window_id,
+					} => {
+						let pos = Vector2::new(position.x as f32, position.y as f32);
+						this.borrow_mut().last_cursor_pos = pos;
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							let size = window.get().winit_window.inner_size();
+							let geometry = Geometry::new(
+								Vector2::new(0.0, 0.0),
+								Vector2::new(size.width as scalar, size.height as scalar),
+								Vector2::new(0.0, 0.0),
+								Vector2::new(1.0, 1.0),
+							);
+
+							// TODO: Add multi device support
+							let path = events::get_widget_path_under_position(
+								geometry,
+								window.get().framework_window.clone(),
+								&pos,
+							);
+							event_context.borrow_mut().handle_mouse_move(&path, 0, &this.borrow().last_cursor_pos);
+
+							window.get().winit_window.request_redraw();
+						}
+					}
+					Event::WindowEvent {
+						event:
+							WindowEvent::MouseInput {
+								device_id: _,
+								button,
+								state,
+								modifiers: _,
+							},
+						window_id,
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							if button == winit::event::MouseButton::Left {
 								let size = window.get().winit_window.inner_size();
 								let geometry = Geometry::new(
 									Vector2::new(0.0, 0.0),
@@ -212,180 +222,154 @@ where
 									Vector2::new(1.0, 1.0),
 								);
 
-								// TODO: Add multi device support
 								let path = events::get_widget_path_under_position(
 									geometry,
 									window.get().framework_window.clone(),
-									&pos,
+									&this.borrow().last_cursor_pos,
 								);
-								event_context.handle_mouse_move(&path, 0, &self.last_cursor_pos);
+								let pos = this.borrow().last_cursor_pos.clone();
+								match state {
+									ElementState::Pressed => event_context.borrow_mut()
+										.handle_mouse_button_down(
+											&path,
+											0,
+											conv_mouse_button(button),
+											&pos,
+										),
+									ElementState::Released => event_context.borrow_mut()
+										.handle_mouse_button_up(
+											&path,
+											0,
+											conv_mouse_button(button),
+											&pos,
+										),
+								}
 
 								window.get().winit_window.request_redraw();
 							}
 						}
-						Event::WindowEvent {
-							event:
-								WindowEvent::MouseInput {
-									device_id: _,
-									button,
-									state,
-									modifiers: _,
-								},
-							window_id,
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								if button == winit::event::MouseButton::Left {
-									let size = window.get().winit_window.inner_size();
-									let geometry = Geometry::new(
-										Vector2::new(0.0, 0.0),
-										Vector2::new(size.width as scalar, size.height as scalar),
-										Vector2::new(0.0, 0.0),
-										Vector2::new(1.0, 1.0),
+					}
+					Event::WindowEvent {
+						window_id,
+						event:
+							WindowEvent::KeyboardInput {
+								device_id: _,
+								input,
+								is_synthetic: _,
+							},
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							match input.state {
+								// TODO: Add multi device support
+								ElementState::Pressed => {
+									event_context.borrow_mut().handle_key_down(
+										0,
+										input.scancode as usize,
+										input.virtual_keycode,
 									);
-
-									let path = events::get_widget_path_under_position(
-										geometry,
-										window.get().framework_window.clone(),
-										&self.last_cursor_pos,
+								}
+								ElementState::Released => {
+									event_context.borrow_mut().handle_key_up(
+										0,
+										input.scancode as usize,
+										input.virtual_keycode,
 									);
-									let pos = self.last_cursor_pos.clone();
-									match state {
-										ElementState::Pressed => event_context
-											.handle_mouse_button_down(
-												self,
-												&path,
-												0,
-												conv_mouse_button(button),
-												&pos,
-											),
-										ElementState::Released => event_context
-											.handle_mouse_button_up(
-												self,
-												&path,
-												0,
-												conv_mouse_button(button),
-												&pos,
-											),
-									}
-
-									window.get().winit_window.request_redraw();
 								}
 							}
+							window.get().winit_window.request_redraw();
 						}
-						Event::WindowEvent {
-							window_id,
-							event:
-								WindowEvent::KeyboardInput {
-									device_id: _,
-									input,
-									is_synthetic: _,
-								},
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								match input.state {
-									// TODO: Add multi device support
-									ElementState::Pressed => {
-										event_context.handle_key_down(
-											0,
-											input.scancode as usize,
-											input.virtual_keycode,
-										);
-									}
-									ElementState::Released => {
-										event_context.handle_key_up(
-											0,
-											input.scancode as usize,
-											input.virtual_keycode,
-										);
-									}
-								}
-								window.get().winit_window.request_redraw();
-							}
-						}
-						Event::WindowEvent {
-							window_id,
-							event: WindowEvent::ReceivedCharacter(char),
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								// TODO: Add multi device support
-								event_context.handle_text(0, char);
-								window.get().winit_window.request_redraw();
-							}
-						}
-						Event::WindowEvent {
-							window_id,
-							event: WindowEvent::CursorLeft { device_id: _ },
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								// TODO: Add multi device support
-								event_context.handle_cursor_leave(0);
-								window.get().winit_window.request_redraw();
-							}
-						},
-						Event::WindowEvent {
-							window_id,
-							event: WindowEvent::CursorEntered { device_id: _ }
-						} => {
-							if let Some(window) = self.window_by_id(window_id) {
-								// TODO: Add multi device support
-								event_context.handle_cursor_enter(0);
-								window.get().winit_window.request_redraw();
-							}
-						}
-						Event::RedrawEventsCleared => {
-							/*self.wayland_event_queue
-							.dispatch_pending(&mut (), || {
-
-							})
-							.expect("failed to dispatch wayland event queue");*/
-						}
-						_ => (),
 					}
-
-					if self.deferred_widget_creating.len() > 0 {
-						*control_flow = ControlFlow::Exit;
-						loop_braked = true;
+					Event::WindowEvent {
+						window_id,
+						event: WindowEvent::ReceivedCharacter(char),
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							// TODO: Add multi device support
+							event_context.borrow_mut().handle_text(0, char);
+							window.get().winit_window.request_redraw();
+						}
 					}
-				});
-			self.event_loop = event_loop;
+					Event::WindowEvent {
+						window_id,
+						event: WindowEvent::CursorLeft { device_id: _ },
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							// TODO: Add multi device support
+							event_context.borrow_mut().handle_cursor_leave(0);
+							window.get().winit_window.request_redraw();
+						}
+					},
+					Event::WindowEvent {
+						window_id,
+						event: WindowEvent::CursorEntered { device_id: _ }
+					} => {
+						if let Some(window) = this.borrow().window_by_id(window_id) {
+							// TODO: Add multi device support
+							event_context.borrow_mut().handle_cursor_enter(0);
+							window.get().winit_window.request_redraw();
+						}
+					}
+					Event::RedrawEventsCleared => {
+						/*self.wayland_event_queue
+						.dispatch_pending(&mut (), || {
 
-			if loop_braked {
-				let to_create: Vec<_> = self
-					.deferred_widget_creating
-					.drain(0..self.deferred_widget_creating.len())
-					.collect();
-				for window in to_create {
-					let mut winit_window = winit::window::WindowBuilder::new()
-						.with_title("Hello World")
-						.with_decorations(true)
-						.with_transparent(true)
-						.build(self.event_loop.as_ref().unwrap())
-						.unwrap();
-
-					let id: WindowId = winit_window.id();
-
-					window.get_mut().set_id(Some(id));
-
-					let platform_specific_data = self.platform_specifics.add_window(
-						&window,
-						&mut winit_window,
-						self.event_loop.as_mut().unwrap(),
-					);
-
-					let mut window = SharedRef::new(Window {
-						winit_window,
-						framework_window: window.clone(),
-						platform_specific_data,
-						skia_data: None,
-						size: Default::default(),
-					});
-
-					self.resize_buffer(window.clone());
-
-					self.windows.insert(id, window);
+						})
+						.expect("failed to dispatch wayland event queue");*/
+					}
+					_ => (),
 				}
-			} else {
-				break;
+
+				// End Event loop if no windows are left or if there are messages to handle
+				if this.borrow().windows.len() < 1 || this.borrow().deferred_messages.borrow().len() > 0 {
+					*control_flow = ControlFlow::Exit;
+				}
+			});
+
+			let mut messages: Vec<_> = std::mem::take(this.borrow_mut().deferred_messages.borrow_mut().as_mut());
+			for message in messages {
+				match message {
+					PlatformMessage::NewWindow(window) => {
+						let mut winit_window = winit::window::WindowBuilder::new()
+							.with_title("Hello World")
+							.with_decorations(true)
+							.with_transparent(true)
+							.build(&event_loop)
+							.unwrap();
+
+						let id: WindowId = winit_window.id();
+
+						window.get_mut().set_id(Some(id));
+
+						let platform_specific_data = this.borrow_mut().platform_specifics.add_window(
+							&window,
+							&mut winit_window,
+							&mut event_loop,
+						);
+
+						let mut window = SharedRef::new(Window {
+							winit_window,
+							framework_window: window.clone(),
+							platform_specific_data,
+							skia_data: None,
+							size: Default::default(),
+						});
+
+						this.borrow_mut().resize_buffer(window.clone());
+
+						this.borrow_mut().windows.insert(id, window);
+					}
+					PlatformMessage::RemoveWindow(window) => {
+						let id = match window.get().id() {
+							Some(id) => id,
+							None => return,
+						};
+						let window = match this.borrow_mut().windows.remove(&id) {
+							Some(w) => w,
+							None => return,
+						};
+						this.borrow_mut().platform_specifics.remove_window(window);
+					}
+				}
 			}
 		}
 	}
