@@ -123,6 +123,6 @@ impl WinitPlatformSpecifics for WindowsWinitSpecifics {
 	}
 }
 
-pub const fn create_platform() -> Context {
+pub fn create_platform() -> Context {
 	Context::new(WindowsWinitSpecifics {})
 }
